@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 
 export default function requestSniffer(
   req: Request,
@@ -10,6 +10,6 @@ export default function requestSniffer(
   console.log("Query Params:", req.query);
   console.log("Body:", req.body); // Requires express.json()
   console.log("IP:", req.ip);
-
+  res.status(200);
   next(); // Pass control to the next middleware/route
 }
