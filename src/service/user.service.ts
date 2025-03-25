@@ -1,39 +1,50 @@
 // src/index.ts
-import User from "../models/User";
 
-const createUser = async () => {
-  const user = await User.create({
-    username: "John Doe",
-    email: "john.doe@example.com",
-  });
-  console.log("User created:", user.toJSON());
+import User from "../models/User.ts";
+
+type USERT = {
+  username: string;
+  email: string;
+  password: string;
 };
 
-const findUser = async () => {
-  const user = await User.findOne({ where: { email: "john.doe@example.com" } });
-  console.log("User found:", user?.toJSON());
-};
+const userService = {
+  createUser: async ({ username, email, password }: USERT) => {
+    try {
+      const user = await User.create({
+        username: username,
+        email: email,
+        password: password,
+      });
+      console.log("User created:", user.toJSON());
+    } catch (error) {
+      if (error) {
+        throw new Error("Username or email already exists");
+      }
+    }
+  },
 
-const updateUser = async () => {
-  const [updatedRows] = await User.update(
-    { username: "Jane Doe" },
-    { where: { email: "john.doe@example.com" } }
-  );
-  console.log("Updated rows:", updatedRows);
-};
+  findUser: async () => {
+    const user = await User.findOne({
+      where: { email: "john.doe@example.com" },
+    });
+    console.log("User found:", user?.toJSON());
+  },
 
-const deleteUser = async () => {
-  const deletedRows = await User.destroy({
-    where: { email: "john.doe@example.com" },
-  });
-  console.log("Deleted rows:", deletedRows);
-};
+  updateUser: async () => {
+    const [updatedRows] = await User.update(
+      { username: "Jane Doe" },
+      { where: { email: "john.doe@example.com" } }
+    );
+    console.log("Updated rows:", updatedRows);
+  },
 
-const userService = async () => {
-  await createUser();
-  await findUser();
-  await updateUser();
-  await deleteUser();
+  deleteUser: async () => {
+    const deletedRows = await User.destroy({
+      where: { email: "john.doe@example.com" },
+    });
+    console.log("Deleted rows:", deletedRows);
+  },
 };
 
 export default userService;
