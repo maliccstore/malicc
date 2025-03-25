@@ -26,8 +26,14 @@ User.init(
       allowNull: false,
       unique: true,
     },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
   },
   { sequelize, modelName: "User", tableName: "users", timestamps: true }
 );
+
+//await sequelize.sync({ alter: true });
 
 export default User;
