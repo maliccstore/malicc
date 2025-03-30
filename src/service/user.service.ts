@@ -1,15 +1,13 @@
 // src/index.ts
 
-import User from "../models/User.ts";
+import User from "../models/User";
+import { UserType } from "@/types/user";
 
-type USERT = {
-  username: string;
-  email: string;
-  password: string;
-};
+//  These are the use services for the user,
+//  Either to Create, Find, Update or Delete a User
 
 const userService = {
-  createUser: async ({ username, email, password }: USERT) => {
+  createUser: async ({ username, email, password }: UserType) => {
     try {
       const user = await User.create({
         username: username,
