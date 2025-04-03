@@ -28,7 +28,13 @@ const userService = {
     });
     console.log("User found:", user?.toJSON());
   },
-
+  findAllUsers: async () => {
+    const users = await User.findAll();
+    console.log(
+      "📋 Users:",
+      users.map((user) => user.toJSON())
+    );
+  },
   updateUser: async () => {
     const [updatedRows] = await User.update(
       { username: "Jane Doe" },
