@@ -17,6 +17,10 @@
     "noUnusedParameters": true,               
     "noImplicitReturns": true,                
     "noFallthroughCasesInSwitch": true,       
+    // Configurations for Decoraters "typeDI"
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false,
+    "emitDecoratorMetadata": true,
     "moduleResolution": "Node",               
     "baseUrl": ".",                           
     "paths": {

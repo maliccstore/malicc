@@ -1,13 +1,15 @@
+import "reflect-metadata";
 // src/index.ts
-
+import { Service } from "typedi";
 import User from "../models/User";
-import { UserType } from "@/types/user";
+import { UserType } from "@/api/graphql/schemas/user.schema";
 
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User
 
-const userService = {
-  createUser: async ({ username, email, password }: UserType) => {
+@Service()
+export class UserService {
+  async createUser({ username, email, password }: UserType) {
     try {
       const user = await User.create({
         username: username,
@@ -20,35 +22,37 @@ const userService = {
         throw new Error("Username or email already exists");
       }
     }
-  },
+  }
 
-  findUser: async () => {
-    const user = await User.findOne({
-      where: { email: "john.doe@example.com" },
+  async findUser(id: number) {
+    try {
+      return await User.findByPk(id);
+    } catch {
+      return null;
+    }
+  }
+  async findAllUsers(): Promise<UserType[]> {
+    return await User.findAll();
+  }
+  async updateUser(emailToFind: string, updatedData: Partial<UserType>) {
+    const [updatedRows] = await User.update(updatedData, {
+      where: { email: emailToFind },
     });
-    console.log("User found:", user?.toJSON());
-  },
-  findAllUsers: async () => {
-    const users = await User.findAll();
-    console.log(
-      "📋 Users:",
-      users.map((user) => user.toJSON())
-    );
-  },
-  updateUser: async () => {
-    const [updatedRows] = await User.update(
-      { username: "Jane Doe" },
-      { where: { email: "john.doe@example.com" } }
-    );
-    console.log("Updated rows:", updatedRows);
-  },
+    return updatedRows;
+  }
 
-  deleteUser: async () => {
+  async deleteUser(emailToDelete: string) {
     const deletedRows = await User.destroy({
-      where: { email: "john.doe@example.com" },
+      where: { email: emailToDelete },
     });
-    console.log("Deleted rows:", deletedRows);
-  },
-};
+    return deletedRows;
+  }
+}
 
-export default userService;
+async function Test() {
+  console.log("Initializing New component");
+  const userInstance = new UserService();
+  const users = await userInstance.findAllUsers();
+  console.log(users);
+  process.exit(1);
+}

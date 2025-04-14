@@ -1,6 +1,7 @@
 import sequelize from "../config/database";
 
 async function checkDatabaseConnection() {
+  console.log("Checking the connectivity");
   try {
     await sequelize.authenticate();
     console.log("✅ Database connection has been established successfully.");
