@@ -3,6 +3,8 @@ import "reflect-metadata";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
 import { UserResolver } from "./api/graphql/resolvers/User.resolver"; // Adjust the path as needed
+
+import { OTPResolver } from "./api/graphql/resolvers/OTP.resolver";
 import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -19,7 +21,7 @@ async function bootstrap() {
   // 1. Build TypeGraphQL Schema
 
   const schema = await buildSchema({
-    resolvers: [UserResolver],
+    resolvers: [UserResolver, OTPResolver],
     validate: { forbidUnknownValues: false },
     container: Container,
   });
