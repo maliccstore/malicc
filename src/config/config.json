@@ -1,0 +1,23 @@
+{
+    "development": {
+      "username": "shahzerbaig",
+      "password": "Shahzer@baig1234",
+      "database": "malicc",
+      "host": "159.89.173.118",
+      "dialect": "postgres"
+    },
+    "test": {
+        "username": "shahzerbaig",
+        "password": "Shahzer@baig1234",
+        "database": "malicc",
+        "host": "159.89.173.118",
+      "dialect": "postgres"
+    },
+    "production": {
+        "username": "shahzerbaig",
+        "password": "Shahzer@baig1234",
+        "database": "malicc",
+        "host": "159.89.173.118",
+      "dialect": "postgres"
+    }
+  }
