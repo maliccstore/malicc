@@ -22,11 +22,12 @@
     "strictPropertyInitialization": false,
     "emitDecoratorMetadata": true,
     "moduleResolution": "Node",               
-    "baseUrl": ".",                           
+    "baseUrl": "./src",                           
     "paths": {
-      "@/*": ["src/*"]                        
+      "@/*": ["src/*"],
+      "@types/*": ["types/*"]                        
     }
   },
-  "include": ["src", "migrations"],
+  "include": ["src", "src/migrations"],
   "exclude": ["node_modules", "dist"]
 }

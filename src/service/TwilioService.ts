@@ -7,6 +7,7 @@ dotenv.config();
 class TwilioService {
   private client: twillo.Twilio;
   private phoneNumber: string;
+  private verifyServiceSid: string;
 
   constructor() {
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -17,6 +18,7 @@ class TwilioService {
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
+    this.verifyServiceSid = process.env.VERIFY_SERVICE_SID!;
 
     this.phoneNumber = process.env.TWILIO_PHONE_NUMBER || "";
   }
@@ -24,18 +26,34 @@ class TwilioService {
   async sendVerificationSms(
     to: string,
     verificationCode: string
-  ): Promise<void> {
+  ): Promise<{ success: Boolean }> {
+    if (!to) throw new Error("Missing 'to' parameter.");
     try {
-      await this.client.messages.create({
-        body: `Your verification code is: ${verificationCode}`,
-        from: this.phoneNumber,
-        to,
-      });
+      this.client.messages
+        .create({
+          to: to,
+          from: "+16205826350",
+          body: `OTP: ${verificationCode}`,
+        })
+        .then((message) => {
+          // Success callback
+          console.log("Message sent successfully:", message.sid);
+        })
+        .catch((error) => {
+          // Failure callback
+          console.error("Error sending message:", error);
+        });
+
+      console.log(`Sent verification: ${verificationCode}`);
+      return { success: true };
+      // await this.client.messages.create({
+      //   body: `Your verification code is: ${verificationCode}`,
+      //   // from: this.phoneNumber,
+      //   to,
+      // });
     } catch (error) {
-      if (!error) {
-        console.error("Error sending verification SMS:", error);
-        throw new Error("Failed to send verification SMS");
-      }
+      console.error("Error sending verification SMS:", error);
+      throw new Error("Failed to send verification SMS");
     }
   }
   async sendVerificationWithTemplate(

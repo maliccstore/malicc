@@ -3,9 +3,9 @@
 import { ObjectType, Field, ID, InputType } from "type-graphql";
 
 @ObjectType()
-export class UserType {
+export class UserProfile {
   @Field(() => ID)
-  id: number;
+  id?: string;
 
   @Field()
   username: string;
@@ -15,21 +15,22 @@ export class UserType {
   @Field()
   phoneNumber: string;
 
+  @Field()
   isPhoneVerified: boolean;
 
-  @Field()
-  otp: string;
+  // @Field({ nullable: true })
+  otp?: string | null;
 
-  otpExpiration: string;
+  otpExpiration?: Date | null;
 
   @Field()
   email: string;
 
   @Field(() => Date)
-  createdAt: Date;
+  createdAt?: Date;
 
   @Field(() => Date)
-  updatedAt: Date;
+  updatedAt?: Date;
 }
 
 @ObjectType()
@@ -37,8 +38,23 @@ export class AuthPayload {
   @Field()
   token!: string;
 
-  @Field(() => Boolean)
-  user!: boolean;
+  @Field(() => UserProfile)
+  user!: UserProfile;
+}
+
+@InputType()
+export class SignupInput {
+  @Field()
+  username: string;
+
+  @Field()
+  email: string;
+
+  @Field()
+  password: string;
+
+  @Field()
+  phoneNumber: string;
 }
 @InputType()
 export class VerifyOTPInput {
@@ -47,4 +63,10 @@ export class VerifyOTPInput {
 
   @Field()
   otp!: string;
+}
+
+@ObjectType()
+export class SignupResponse {
+  @Field(() => UserProfile)
+  user: UserProfile;
 }

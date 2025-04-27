@@ -2,25 +2,22 @@ import "reflect-metadata";
 // src/index.ts
 import { Service } from "typedi";
 import User from "../models/User";
-import { UserType } from "@/api/graphql/schemas/user.schema";
+import { UserType } from "../api/graphql/schemas/user.schema";
+import { CreateUserDTO } from "../dtos/CreateUser.dto";
+import { generateOTP, generateOTPExpiration } from "../utils/otp";
 
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User
 
 @Service()
-export class UserService {
-  async createUser({ username, email, password }: UserType) {
+class UserService {
+  async createUser(userData: CreateUserDTO) {
     try {
-      const user = await User.create({
-        username: username,
-        email: email,
-        password: password,
-      });
-      console.log("User created:", user.toJSON());
+      const user = await User.create(userData);
+      console.log(`Log at "user.service.ts" \n User created:`, user.toJSON());
+      return user;
     } catch (error) {
-      if (error) {
-        throw new Error("Username or email already exists");
-      }
+      throw new Error("Username or email already exists");
     }
   }
 
@@ -31,13 +28,22 @@ export class UserService {
       return null;
     }
   }
-  async findAllUsers(): Promise<UserType[]> {
-    return await User.findAll();
+
+  // CreateUserDTO: Make a new DTO for the User
+  async getUserByPhone(phoneNumber: string): Promise<User | null> {
+    return User.findOne({ where: { phoneNumber } });
   }
-  async updateUser(emailToFind: string, updatedData: Partial<UserType>) {
+  async findAllUsers(): Promise<User[]> {
+    const users = await User.findAll();
+    return users;
+  }
+  async updateUser(emailToFind: string, updatedData: Partial<User>) {
     const [updatedRows] = await User.update(updatedData, {
       where: { email: emailToFind },
     });
+    if (updatedRows === 0) {
+      throw new Error(`No user found with email ${emailToFind}`);
+    }
     return updatedRows;
   }
 
@@ -47,12 +53,26 @@ export class UserService {
     });
     return deletedRows;
   }
+
+  async generateUserOTP(phoneNumber: string) {
+    const otp = generateOTP();
+    const otpExpiration = generateOTPExpiration();
+    console.warn(`OTP from user.service.ts ${otp}`);
+    const [updatedRows] = await User.update(
+      {
+        otp,
+        otpExpiration: otpExpiration,
+      },
+      {
+        where: { phoneNumber: phoneNumber },
+      }
+    );
+
+    if (updatedRows === 0) {
+      throw new Error(`No user found with email ${phoneNumber}`);
+    }
+    return { otp, otpExpiration };
+  }
 }
 
-async function Test() {
-  console.log("Initializing New component");
-  const userInstance = new UserService();
-  const users = await userInstance.findAllUsers();
-  console.log(users);
-  process.exit(1);
-}
+export default UserService;

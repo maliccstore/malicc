@@ -1,6 +1,7 @@
+import User from "../models/User";
 import TwilioService from "./TwilioService";
-import { randomInt } from "crypto";
 import { Service } from "typedi";
+import { UserProfile } from "../api/graphql/schemas/user.schema";
 
 @Service()
 export class VerificationService {
@@ -11,14 +12,18 @@ export class VerificationService {
   private CODE_EXPIRATION_MINUTES = 15;
 
   constructor() {}
-  async generateAndSendVerificationCode(phoneNumber: string): Promise<boolean> {
+  async sendVerificationCode(
+    phoneNumber: string,
+    otp: string,
+    otpExpiration: Date
+  ): Promise<boolean> {
     try {
       // Six digit verification code
-      const verificationCode = randomInt(100000, 999999).toString();
+      const verificationCode = otp;
 
       // Store the code with expiration
 
-      const expiresAt = new Date();
+      const expiresAt = otpExpiration;
 
       expiresAt.setMinutes(
         expiresAt.getMinutes() + this.CODE_EXPIRATION_MINUTES
@@ -40,11 +45,11 @@ export class VerificationService {
     }
   }
 
-  async verifyCode(phoneNumber: string, code: string): Promise<boolean> {
+  async verifyCode(phoneNumber: string, code: string): Promise<UserProfile> {
     const record = this.verificationCodes.get(phoneNumber);
 
     if (!record) {
-      return false;
+      throw new Error("User not found in the data base");
     }
 
     // check if code isn't expired
@@ -52,8 +57,28 @@ export class VerificationService {
 
     // Delete the code either ways
 
+    if (!isValid) {
+      throw new Error("User OTP is not Valid");
+    }
+    const user = await User.findOne({ where: { phoneNumber } });
+    if (!user) {
+      // handle user not found
+      throw new Error("User not found");
+    }
+    const userType: UserProfile = {
+      id: user.id,
+      username: user.username,
+      password: user.password,
+      phoneNumber: String(user.phoneNumber), // Your schema uses string, model uses number
+      isPhoneVerified: user.isPhoneVerified, // Map differently named field
+      otp: user.otp || "", // Handle null fallback
+      otpExpiration: user.otpExpiration, // Convert Date to string
+      email: user.email,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
     this.verificationCodes.delete(phoneNumber);
 
-    return isValid;
+    return userType;
   }
 }

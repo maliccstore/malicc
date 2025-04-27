@@ -1,21 +1,22 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
+import { UserType } from "../types/user";
 
-class User extends Model {
-  public id!: number;
+class User extends Model implements UserType {
+  public id!: string;
 
   public username!: string;
 
-  public phoneNumber!: number;
+  public phoneNumber!: string;
   public password!: string;
 
   public email!: string;
 
-  public otpCode!: string | null;
+  public otp?: string | null;
 
-  public otpExpiration!: Date | null;
+  public otpExpiration?: Date | null;
 
-  public isVerified!: boolean;
+  public isPhoneVerified!: boolean;
 
   public readonly createdAt!: Date;
 

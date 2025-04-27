@@ -1,12 +1,22 @@
+import { CreateUserDTO } from "../dtos/CreateUser.dto";
+
 export type UserType = {
+  id: string;
   username: string;
-  email: string;
+  phoneNumber: string;
   password: string;
+  email: string;
+  otp?: string | null;
+  otpExpiration?: Date | null;
+  isPhoneVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-export type UserService = {
-  createUser: (user: UserType) => Promise<void>;
-  findUser: (username: string) => Promise<UserType | null>;
+export type UserServiceType = {
+  createUser: (userData: CreateUserDTO) => {};
+  getUserByPhone: (phoneNumber: string) => {};
+  findUser: (id: number) => {};
   findAllUsers: () => Promise<UserType[]>;
   updateUser: () => Promise<void>;
   deleteUser: (username: string) => Promise<void>;
