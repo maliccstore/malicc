@@ -2,7 +2,6 @@ import "reflect-metadata";
 // src/index.ts
 import { Service } from "typedi";
 import User from "../models/User";
-import { UserType } from "../api/graphql/schemas/user.schema";
 import { CreateUserDTO } from "../dtos/CreateUser.dto";
 import { generateOTP, generateOTPExpiration } from "../utils/otp";
 
@@ -28,7 +27,14 @@ class UserService {
       return null;
     }
   }
-
+  async findUserByEmail(email: string): Promise<User | null> {
+    try {
+      const user = await User.findOne({ where: { email } });
+      return user;
+    } catch {
+      return null;
+    }
+  }
   // CreateUserDTO: Make a new DTO for the User
   async getUserByPhone(phoneNumber: string): Promise<User | null> {
     return User.findOne({ where: { phoneNumber } });
@@ -58,6 +64,11 @@ class UserService {
     const otp = generateOTP();
     const otpExpiration = generateOTPExpiration();
     console.warn(`OTP from user.service.ts ${otp}`);
+    const user = await this.getUserByPhone(phoneNumber);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    // Modify this function to use in build private method to update via phoneNumber
     const [updatedRows] = await User.update(
       {
         otp,
