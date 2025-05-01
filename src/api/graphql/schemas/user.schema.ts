@@ -70,3 +70,14 @@ export class SignupResponse {
   @Field(() => UserProfile)
   user: UserProfile;
 }
+
+@ObjectType()
+export class LoginResponse {
+  @Field(() => UserProfile)
+  user: UserProfile;
+}
+@InputType()
+export class LoginOTPInput {
+  @Field()
+  phoneNumber: string;
+}
