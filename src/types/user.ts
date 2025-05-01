@@ -13,6 +13,13 @@ export type UserType = {
   updatedAt: Date;
 };
 
+export type UserToken = {
+  id: number;
+  phoneNumber: string;
+  email: string;
+  iat: Date;
+  exp: Date;
+};
 export type UserServiceType = {
   createUser: (userData: CreateUserDTO) => {};
   getUserByPhone: (phoneNumber: string) => {};

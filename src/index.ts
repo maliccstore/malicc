@@ -4,15 +4,15 @@ import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
 import { UserResolver } from "./api/graphql/resolvers/User.resolver"; // Adjust the path as needed
 
+import { authChecker, getTokenFromRequest, verifyToken } from "./utils/auth";
 import { OTPResolver } from "./api/graphql/resolvers/OTP.resolver";
 import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
 import dotenv from "dotenv";
-//import UserRouter from "./api/User.route";
+
 import { buildSchema } from "type-graphql";
 import sequelize from "./config/database";
 import Container from "typedi";
-// import { json } from "body-parser";
 
 async function bootstrap() {
   dotenv.config();
@@ -22,6 +22,7 @@ async function bootstrap() {
 
   const schema = await buildSchema({
     resolvers: [UserResolver, OTPResolver],
+    authChecker: authChecker,
     validate: { forbidUnknownValues: false },
     container: Container,
   });
@@ -39,7 +40,17 @@ async function bootstrap() {
     cors<cors.CorsRequest>(),
     express.json(),
     expressMiddleware(apolloServer, {
-      context: async ({ req }) => ({ token: req.headers.authorization }),
+      context: async ({ req }) => {
+        const token = getTokenFromRequest(req);
+        if (!token) return { user: null };
+
+        try {
+          const payload = verifyToken(token);
+          return { user: payload }; // Now the email is in payload.email
+        } catch (error) {
+          return { user: null };
+        }
+      },
     })
   );
   app.listen(port, () => {
@@ -56,11 +67,3 @@ bootstrap();
 sequelize.sync({ alter: true }).then(() => {
   console.log("Database synced");
 });
-// app.use(express.json());
-// app.use("/api", UserRouter);
-
-// function root(req: Request, res: Response): void {
-//   res.status(200).json({ message: "This is root path of malicc server" });
-// }
-
-// app.get("/", root);

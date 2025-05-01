@@ -1,9 +1,10 @@
 import { Resolver, Mutation, Arg } from "type-graphql";
 import { VerificationService } from "./../../../service/VerificationService";
-import { AuthPayload } from "../schemas/user.schema";
+import { AuthPayload, UserProfile } from "../schemas/user.schema";
 import { Service } from "typedi";
 import { generateJWT } from "../../../utils/auth";
 import UserService from "../../../service/user.service";
+import { checkValidOTP } from "../../../utils/otp";
 
 @Service()
 @Resolver()
@@ -29,28 +30,49 @@ export class OTPResolver {
     @Arg("otp") otp: string
   ): Promise<AuthPayload> {
     const user = await this.userService.getUserByPhone(phoneNumber);
-    /// Problem at await
-    //const user = await this.otpService.verifyCode(phoneNumber, otp);
 
-    if (
-      !user ||
-      user.otp !== otp ||
-      user.otpExpiration == null || // handles both null and undefined
-      user.otpExpiration < new Date()
-    ) {
-      throw new Error("Invalid OTP");
-    }
+    const isUserValid = checkValidOTP(user, otp);
 
-    await this.userService.updateUser(user.email, {
-      isPhoneVerified: true,
+    const updateData: Partial<UserProfile> = {
       otp: null,
       otpExpiration: null,
-    });
-    const token = generateJWT(user);
-
-    return {
-      token,
-      user,
+      isPhoneVerified: true,
     };
+
+    if (!isUserValid) {
+      throw new Error("Invalid OTP");
+    }
+    if (user) {
+      await this.userService.updateUser(user.email, updateData);
+
+      const token = generateJWT(user);
+
+      return {
+        token,
+        user,
+      };
+    } else {
+      console.log("user not found");
+
+      throw new Error("User Not found");
+    }
+  }
+  @Mutation(() => Boolean)
+  async requestLoginOTP(
+    @Arg("phoneNumber") phoneNumber: string
+  ): Promise<boolean> {
+    const user = await this.userService.getUserByPhone(phoneNumber);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    if (!user.isPhoneVerified) {
+      throw new Error("User must verify their phone first");
+    }
+
+    const { otp, otpExpiration } = await this.userService.generateUserOTP(
+      phoneNumber
+    );
+    this.otpService.sendVerificationCode(phoneNumber, otp, otpExpiration);
+    return true;
   }
 }

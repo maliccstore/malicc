@@ -1,4 +1,4 @@
-import { Query, Resolver, Arg, Mutation } from "type-graphql";
+import { Query, Resolver, Arg, Mutation, Authorized, Ctx } from "type-graphql";
 import { Service } from "typedi";
 import {
   SignupInput,
@@ -10,6 +10,7 @@ import { hash } from "bcrypt";
 
 import UserService from "../../../service/user.service";
 import { VerificationService } from "../../../service/VerificationService";
+import { UserToken } from "../../../types/user";
 
 @Service()
 @Resolver()
@@ -19,19 +20,29 @@ export class UserResolver {
     private readonly verificationService: VerificationService
   ) {}
 
+  // Deprecate it in production
+  @Authorized()
   @Query(() => [UserProfile])
-  async users() {
-    try {
-      return await this.userService.findAllUsers();
-    } catch (error) {
-      console.error("Database error:", error);
-      throw new Error("Failed to fetch users");
+  async users(@Ctx() { user }: { user: UserToken }) {
+    console.log(user);
+    if (user.email == "shahzer@malicc.store") {
+      try {
+        return await this.userService.findAllUsers();
+      } catch (error) {
+        console.error("Database error:", error);
+        throw new Error("Failed to fetch users");
+      }
+    } else {
+      throw new Error("Not authenticated");
     }
   }
 
+  @Authorized()
   @Query(() => UserProfile, { nullable: true })
-  async user(@Arg("id") id: number) {
-    return this.userService.findUser(id);
+  async user(@Ctx() { user }: { user: UserToken }) {
+    if (!user) throw new Error("Not authenticated");
+    console.log(user);
+    return this.userService.getUserByPhone(user.phoneNumber);
   }
 
   @Mutation(() => SignupResponse)
@@ -52,7 +63,7 @@ export class UserResolver {
       const { otp, otpExpiration } = await this.userService.generateUserOTP(
         user.phoneNumber
       );
-
+      console.log(`OTP: ${otp} \n OTP Expiration: ${otpExpiration}`);
       this.verificationService.sendVerificationCode(
         user.phoneNumber,
         otp,
