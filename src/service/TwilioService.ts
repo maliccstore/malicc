@@ -38,13 +38,13 @@ class TwilioService {
         .then((message) => {
           // Success callback
           console.log("Message sent successfully:", message.sid);
+          console.log(`Sent verification: ${verificationCode}`);
         })
         .catch((error) => {
           // Failure callback
           console.error("Error sending message:", error);
         });
 
-      console.log(`Sent verification: ${verificationCode}`);
       return { success: true };
       // await this.client.messages.create({
       //   body: `Your verification code is: ${verificationCode}`,

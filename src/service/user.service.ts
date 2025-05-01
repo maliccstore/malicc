@@ -13,7 +13,7 @@ class UserService {
   async createUser(userData: CreateUserDTO) {
     try {
       const user = await User.create(userData);
-      console.log(`Log at "user.service.ts" \n User created:`, user.toJSON());
+
       return user;
     } catch (error) {
       throw new Error("Username or email already exists");
@@ -63,7 +63,7 @@ class UserService {
   async generateUserOTP(phoneNumber: string) {
     const otp = generateOTP();
     const otpExpiration = generateOTPExpiration();
-    console.warn(`OTP from user.service.ts ${otp}`);
+
     const user = await this.getUserByPhone(phoneNumber);
     if (!user) {
       throw new Error("User not found");
