@@ -34,9 +34,10 @@ export class VerificationService {
         expiresAt,
       });
 
+      console.log(verificationCode);
       // Send the code via SMS
 
-      await TwilioService.sendVerificationSms(phoneNumber, verificationCode);
+      //await TwilioService.sendVerificationSms(phoneNumber, verificationCode);
 
       // return verificationCode;
       return true;
