@@ -1,5 +1,5 @@
 import User from "../models/User";
-import TwilioService from "./TwilioService";
+//import TwilioService from "./TwilioService";
 import { Service } from "typedi";
 import { UserProfile } from "../api/graphql/schemas/user.schema";
 
