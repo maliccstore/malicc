@@ -7,7 +7,7 @@ dotenv.config();
 class TwilioService {
   private client: twillo.Twilio;
   private phoneNumber: string;
-  private verifyServiceSid: string;
+  //private verifyServiceSid: string;
 
   constructor() {
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
@@ -18,7 +18,7 @@ class TwilioService {
       process.env.TWILIO_ACCOUNT_SID,
       process.env.TWILIO_AUTH_TOKEN
     );
-    this.verifyServiceSid = process.env.VERIFY_SERVICE_SID!;
+    //this.verifyServiceSid = process.env.VERIFY_SERVICE_SID!;
 
     this.phoneNumber = process.env.TWILIO_PHONE_NUMBER || "";
   }
