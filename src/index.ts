@@ -1,10 +1,10 @@
 import "reflect-metadata";
 
 import { ApolloServer } from "@apollo/server";
-import {
-  ApolloServerPluginLandingPageLocalDefault,
-  ApolloServerPluginLandingPageProductionDefault,
-} from "@apollo/server/plugin/landingPage/default";
+// import {
+//   ApolloServerPluginLandingPageLocalDefault,
+//   ApolloServerPluginLandingPageProductionDefault,
+// } from "@apollo/server/plugin/landingPage/default";
 import express, { Express } from "express";
 import { UserResolver } from "./api/graphql/resolvers/User.resolver"; // Adjust the path as needed
 
