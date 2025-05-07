@@ -34,6 +34,7 @@ async function bootstrap() {
   // 2. Create Apollo Server
   const apolloServer = new ApolloServer({
     schema: schema,
+    introspection: true,
     plugins: [
       // Install a landing page plugin based on NODE_ENV
       process.env.NODE_ENV === "production"
