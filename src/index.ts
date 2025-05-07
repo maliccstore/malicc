@@ -35,16 +35,16 @@ async function bootstrap() {
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
-    plugins: [
-      // Install a landing page plugin based on NODE_ENV
-      process.env.NODE_ENV === "production"
-        ? ApolloServerPluginLandingPageProductionDefault({
-            graphRef: "my-graph-id@my-graph-variant",
-            footer: false,
-          })
-        : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
-    ],
-    includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
+    // plugins: [
+    //   // Install a landing page plugin based on NODE_ENV
+    //   process.env.NODE_ENV === "production"
+    //     ? ApolloServerPluginLandingPageProductionDefault({
+    //         graphRef: "my-graph-id@my-graph-variant",
+    //         footer: false,
+    //       })
+    //     : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
+    // ],
+    // includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
   });
 
   await apolloServer.start();
