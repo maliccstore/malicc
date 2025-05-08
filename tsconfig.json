@@ -26,7 +26,8 @@
     "paths": {
       "@/*": ["src/*"],
       "@types/*": ["types/*"]                        
-    }
+    },
+    "incremental": true
   },
   "include": ["src", "src/migrations"],
   "exclude": ["node_modules", "dist"]
