@@ -1,19 +1,12 @@
 import "reflect-metadata";
-
 import { ApolloServer } from "@apollo/server";
-// import {
-//   ApolloServerPluginLandingPageLocalDefault,
-//   ApolloServerPluginLandingPageProductionDefault,
-// } from "@apollo/server/plugin/landingPage/default";
 import express, { Express } from "express";
-import { UserResolver } from "./api/graphql/resolvers/User.resolver"; // Adjust the path as needed
-
+import { UserResolver } from "./api/graphql/resolvers/User.resolver";
 import { authChecker, getTokenFromRequest, verifyToken } from "./utils/auth";
 import { OTPResolver } from "./api/graphql/resolvers/OTP.resolver";
 import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
 import dotenv from "dotenv";
-
 import { buildSchema } from "type-graphql";
 import sequelize from "./config/database";
 import Container from "typedi";
@@ -21,9 +14,9 @@ import Container from "typedi";
 async function bootstrap() {
   dotenv.config();
   const app: Express = express();
-  const port = process.env.PORT;
-  // 1. Build TypeGraphQL Schema
+  const port = process.env.PORT || 4000;
 
+  // 1. Build TypeGraphQL Schema
   const schema = await buildSchema({
     resolvers: [UserResolver, OTPResolver],
     authChecker: authChecker,
@@ -35,23 +28,18 @@ async function bootstrap() {
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
-    // plugins: [
-    //   // Install a landing page plugin based on NODE_ENV
-    //   process.env.NODE_ENV === "production"
-    //     ? ApolloServerPluginLandingPageProductionDefault({
-    //         graphRef: "my-graph-id@my-graph-variant",
-    //         footer: false,
-    //       })
-    //     : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
-    // ],
-    // includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
+    includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
   });
 
   await apolloServer.start();
 
+  // Simplified CORS - Let Nginx handle the actual CORS headers
   app.use(
     "/graphql",
-    cors<cors.CorsRequest>(),
+    cors({
+      origin: false, // Disable Express CORS since Nginx handles it
+      credentials: true,
+    }),
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req }) => {
@@ -60,24 +48,42 @@ async function bootstrap() {
 
         try {
           const payload = verifyToken(token);
-          return { user: payload }; // Now the email is in payload.email
+          return { user: payload };
         } catch (error) {
           return { user: null };
         }
       },
     })
   );
-  app.listen(port, () => {
-    console.log("Server running on port", port);
+
+  // Health check endpoint
+  app.get("/health", (_, res) => {
+    res.status(200).json({ status: "healthy" });
   });
 
-  app.on("error", (error) => {
+  const server = app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+
+  server.on("error", (error) => {
     console.error("Server error:", error);
     process.exit(1);
   });
+
+  process.on("SIGTERM", () => {
+    server.close(() => {
+      console.log("Server closed");
+      process.exit(0);
+    });
+  });
 }
 
-bootstrap();
-sequelize.sync({ alter: true }).then(() => {
-  console.log("Database synced");
-});
+bootstrap()
+  .then(() => sequelize.sync({ alter: true }))
+  .then(() => {
+    console.log("Database synced");
+  })
+  .catch((err) => {
+    console.error("Bootstrap failed:", err);
+    process.exit(1);
+  });
