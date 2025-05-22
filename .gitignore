@@ -1,5 +1,6 @@
 dist
 node_modules
+tsconfig.tsbuildinfo
 eslint.config.mjs
 .env
 .env.development
