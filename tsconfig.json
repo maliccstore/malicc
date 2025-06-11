@@ -1,36 +1,58 @@
+
 {
   "compilerOptions": {
-    "diagnostics": true,
-    "listFiles": true,
-    "target": "ES6",                         
-    "module": "CommonJS",                     
-    "rootDir": "src",                        
-    "outDir": "dist",                        
-    "strict": true,                           
-    "esModuleInterop": true,                  
-    "forceConsistentCasingInFileNames": true, 
-    "skipLibCheck": true,                     
-    "allowJs": true,                          
-    "noImplicitAny": true,                    
-    "resolveJsonModule": true,                
-    "strictNullChecks": true,                 
-    "strictFunctionTypes": true,              
-    "noUnusedLocals": true,                   
-    "noUnusedParameters": true,               
-    "noImplicitReturns": true,                
-    "noFallthroughCasesInSwitch": true,       
-    // Configurations for Decoraters "typeDI"
-    "experimentalDecorators": true,
-    "strictPropertyInitialization": false,
-    "emitDecoratorMetadata": true,
-    "moduleResolution": "Node",               
-    "baseUrl": "./src",                           
+    "target": "ES6",
+    "module": "CommonJS",
+    "baseUrl": "./src", 
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "emitDecoratorMetadata": true, //Needed for decorator-based libraries
+    "experimentalDecorators": true, //Required for decorator syntax
+    "strictPropertyInitialization": false, //Disables the requirement for property initialization
     "paths": {
-      "@/*": ["src/*"],
+      "@/*": ["src/*","src/migrations"],
       "@types/*": ["types/*"]                        
     },
     "incremental": true
   },
-  "include": ["src", "src/migrations"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }
+
+// {
+//   "compilerOptions": {
+    
+//     "target": "ES6",                         
+//     "module": "CommonJS",                     
+//     "rootDir": "./src",                        
+//     "outDir": "dist",                        
+//     "esModuleInterop": true,                  
+//     "forceConsistentCasingInFileNames": true, 
+//     "skipLibCheck": true,                     
+//     "allowJs": true,                          
+//     "resolveJsonModule": true,                
+//     "strict": false,
+//     "noImplicitAny": false,
+             
+//     "noUnusedLocals": true,                   
+//     "noUnusedParameters": true,               
+//     "noImplicitReturns": true,                
+//     "noFallthroughCasesInSwitch": true,       
+//     // Configurations for Decoraters "typeDI"
+//     "experimentalDecorators": true,
+//     //"strictPropertyInitialization": false,
+//     "emitDecoratorMetadata": true,
+//     "moduleResolution": "Node",               
+//     "baseUrl": "./src",                           
+//     "paths": {
+//       "@/*": ["src/*"],
+//       "@types/*": ["types/*"]                        
+//     },
+//     "incremental": true
+//   },
+//   "include": ["src", "src/migrations"],
+//   "exclude": ["node_modules", "dist"]
+// }
