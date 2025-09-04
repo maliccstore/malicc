@@ -5,7 +5,7 @@ import { ObjectType, Field, ID, InputType } from "type-graphql";
 @ObjectType()
 export class UserProfile {
   @Field(() => ID)
-  id?: string;
+  id?: number;
 
   @Field()
   username: string;
