@@ -1,7 +1,7 @@
 import { Sequelize } from "sequelize-typescript"; // ← Change import
 import appConfig from "./index";
 import { Product } from "../models/Product";
-import User from "models/User";
+import User from "../models/User";
 
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,
@@ -11,7 +11,7 @@ const sequelize = new Sequelize({
   port: appConfig.DB_PORT,
   dialect: "postgres",
   logging: console.log,
-  models: [Product], // ← Add models here
+  models: [Product, User], // ← Add models here
 });
 
 export default sequelize;

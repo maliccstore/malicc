@@ -1,80 +1,66 @@
-import { DataTypes, Model } from "sequelize";
-import sequelize from "../config/database";
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  Default,
+  AllowNull,
+  Unique,
+} from "sequelize-typescript";
 import { UserType } from "../types/user";
 
-class User extends Model implements UserType {
-  public id!: string;
+@Table({
+  tableName: "users",
+  timestamps: true,
+})
+class User extends Model<UserType> implements UserType {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  public id!: number; // Changed from string to number since it's autoIncrement
 
+  @AllowNull(false)
+  @Column(DataType.STRING)
   public username!: string;
 
-  public phoneNumber!: string;
-  public password!: string;
-
+  @AllowNull(false)
+  @Unique
+  @Column(DataType.STRING)
   public email!: string;
 
-  public otp?: string | null;
+  @AllowNull(false)
+  @Column(DataType.STRING)
+  public password!: string;
 
-  public otpExpiration?: Date | null;
+  @AllowNull(false)
+  @Unique
+  @Column({
+    type: DataType.STRING,
+    validate: {
+      is: /^\+?[1-9]\d{1,14}$/, // E.164 format
+    },
+  })
+  public phoneNumber!: string;
 
+  @Default(false)
+  @Column(DataType.BOOLEAN)
   public isPhoneVerified!: boolean;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  public otp?: string | null;
+
+  @AllowNull(true)
+  @Column(DataType.DATE)
+  public otpExpiration?: Date | null;
+
+  @Column(DataType.DATE)
   public readonly createdAt!: Date;
 
+  @Column(DataType.DATE)
   public readonly updatedAt!: Date;
 }
-
-User.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    username: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
-    password: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
-    phoneNumber: {
-      type: DataTypes.STRING,
-      unique: true,
-      allowNull: false,
-      validate: {
-        is: /^\+?[1-9]\d{1,14}$/, // E.164 format
-      },
-    },
-    isPhoneVerified: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: false,
-    },
-    otp: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    otpExpiration: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-  },
-  { sequelize, modelName: "User", tableName: "users", timestamps: true }
-);
 
 export default User;
