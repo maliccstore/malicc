@@ -4,6 +4,7 @@ import { Service } from "typedi";
 import User from "../models/User";
 import { CreateUserDTO } from "../dtos/CreateUser.dto";
 import { generateOTP, generateOTPExpiration } from "../utils/otp";
+import { UserType } from "types/user";
 
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User
@@ -12,7 +13,7 @@ import { generateOTP, generateOTPExpiration } from "../utils/otp";
 class UserService {
   async createUser(userData: CreateUserDTO) {
     try {
-      const user = await User.create(userData);
+      const user = await User.create(userData as UserType);
 
       return user;
     } catch (error) {
