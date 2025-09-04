@@ -10,6 +10,7 @@ import dotenv from "dotenv";
 import { buildSchema } from "type-graphql";
 import sequelize from "./config/database";
 import Container from "typedi";
+import { ProductResolver } from "./api/graphql/resolvers/Products.resolver";
 
 async function bootstrap() {
   dotenv.config();
@@ -18,7 +19,7 @@ async function bootstrap() {
 
   // 1. Build TypeGraphQL Schema
   const schema = await buildSchema({
-    resolvers: [UserResolver, OTPResolver],
+    resolvers: [UserResolver, OTPResolver, ProductResolver],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
     container: Container,

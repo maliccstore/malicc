@@ -1,6 +1,6 @@
 import sequelize from "./config/database";
-//import User from "./models/User";
-
+import User from "./models/User";
+import { Product } from "./models/Product";
 const syncDatabase = async () => {
   try {
     await sequelize.authenticate();
@@ -9,8 +9,11 @@ const syncDatabase = async () => {
     );
 
     // For Development Only
-    await sequelize.sync({ force: true });
+    //await sequelize.sync({ force: true });
 
+    // Sync all models
+    await User.sync({ alter: true });
+    await Product.sync({ alter: true });
     console.log("All models were synchronized successfully.");
   } catch (error) {
     console.error("Unable to connect to the database:", error);
