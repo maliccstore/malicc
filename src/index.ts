@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
 import { UserResolver } from "./api/graphql/resolvers/User.resolver";
@@ -19,7 +20,7 @@ async function bootstrap() {
 
   // 1. Build TypeGraphQL Schema
   const schema = await buildSchema({
-    resolvers: [UserResolver, OTPResolver, ProductResolver],
+    resolvers: [UserResolver, OTPResolver, ProductResolver, HealthResolver],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
     container: Container,
