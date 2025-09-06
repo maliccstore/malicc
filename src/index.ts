@@ -35,43 +35,23 @@ async function bootstrap() {
 
   await apolloServer.start();
 
-  const allowedOrigins = [
-    "http://localhost:3000", // Local development
-    "https://malicc.store", // Your production frontend
-    "https://www.malicc.store", // WWW version
-    "https://studio.apollographql.com", // Apollo Studio
-    process.env.FRONTEND_URL, // From environment variable
-  ].filter(Boolean);
+  // ✅ ALLOW ALL ORIGINS - Simple CORS configuration
+  app.use(
+    cors({
+      origin: "*", // Allow all origins
+      credentials: false, // Set to false when origin is *
+      methods: ["GET", "POST", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    })
+  );
+
+  // Handle preflight requests
+  app.options("*", cors());
 
   // Simplified CORS - Let Nginx handle the actual CORS headers
   app.use(
     "/graphql",
-    cors({
-      origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman, etc.)
-        if (!origin) return callback(null, true);
 
-        if (
-          allowedOrigins.includes(origin) ||
-          process.env.NODE_ENV === "development"
-        ) {
-          callback(null, true);
-        } else {
-          console.warn(`Blocked by CORS: ${origin}`);
-          callback(new Error("Not allowed by CORS"));
-        }
-      }, // Disable Express CORS since Nginx handles it
-      credentials: true,
-      methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "Accept",
-        "X-Requested-With",
-      ],
-      preflightContinue: false,
-      optionsSuccessStatus: 204,
-    }),
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req }) => {
