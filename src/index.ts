@@ -39,7 +39,7 @@ async function bootstrap() {
   app.use(
     "/graphql",
     cors({
-      origin: false, // Disable Express CORS since Nginx handles it
+      origin: true, // Disable Express CORS since Nginx handles it
       credentials: true,
     }),
     express.json(),
