@@ -41,6 +41,7 @@
     "pg-hstore": "^2.3.4",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.5",
+    "sequelize-typescript": "^2.1.6",
     "ts-node-dev": "^2.0.0",
     "twilio": "^5.5.2",
     "type-graphql": "^2.0.0-rc.2",
