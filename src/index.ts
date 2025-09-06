@@ -35,23 +35,52 @@ async function bootstrap() {
 
   await apolloServer.start();
 
-  // ✅ ALLOW ALL ORIGINS - Simple CORS configuration
-  app.use(
-    cors({
-      origin: "*", // Allow all origins
-      credentials: false, // Set to false when origin is *
-      methods: ["GET", "POST", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "Accept"],
-    })
-  );
+  // ✅ CORS Configuration - Handled in Node.js
+  const allowedOrigins = [
+    "https://malicc.store",
+    "https://www.malicc.store",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+  ];
 
-  // Handle preflight requests
-  app.options("*", cors());
+  const corsOptions = {
+    origin: function (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void
+    ) {
+      // Allow requests with no origin (like mobile apps, Postman, curl)
+      if (!origin) return callback(null, true);
 
-  // Simplified CORS - Let Nginx handle the actual CORS headers
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`Blocked by CORS: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "X-Requested-With",
+    ],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  };
+
+  // Apply CORS to all routes
+  app.use(cors(corsOptions));
+
+  // Handle preflight requests for all routes
+  app.options("*", cors(corsOptions));
+
+  // GraphQL endpoint
   app.use(
     "/graphql",
-
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req }) => {
@@ -69,12 +98,29 @@ async function bootstrap() {
   );
 
   // Health check endpoint
-  app.get("/health", (_, res) => {
-    res.status(200).json({ status: "healthy" });
+  app.get("/health", (req, res) => {
+    res.status(200).json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      cors: "handled-by-nodejs",
+    });
+  });
+
+  // Test endpoint for CORS
+  app.options("/test-cors", cors(corsOptions));
+  app.get("/test-cors", cors(corsOptions), (req, res) => {
+    res.json({
+      message: "CORS is working!",
+      allowedOrigins: allowedOrigins,
+      currentOrigin: req.headers.origin,
+    });
   });
 
   const server = app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+    console.log(`🚀 Server running on port ${port}`);
+    console.log(`🌐 CORS enabled for: ${allowedOrigins.join(", ")}`);
+    console.log(`📊 Health check: http://localhost:${port}/health`);
+    console.log(`🧪 Test CORS: http://localhost:${port}/test-cors`);
   });
 
   server.on("error", (error) => {
