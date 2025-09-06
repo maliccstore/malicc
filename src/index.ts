@@ -39,6 +39,7 @@ async function bootstrap() {
     "http://localhost:3000", // Local development
     "https://malicc.store", // Your production frontend
     "https://www.malicc.store", // WWW version
+    "https://studio.apollographql.com", // Apollo Studio
     process.env.FRONTEND_URL, // From environment variable
   ].filter(Boolean);
 
