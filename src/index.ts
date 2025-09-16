@@ -44,6 +44,8 @@ async function bootstrap() {
     "http://localhost:3001",
     "http://127.0.0.1:3001",
     "https://studio.apollographql.com",
+    "http://localhost:8080",
+    "http://localhost:8081",
   ];
 
   const corsOptions = {
