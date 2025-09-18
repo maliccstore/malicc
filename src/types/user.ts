@@ -4,7 +4,6 @@ export type UserType = {
   id: number;
   username: string;
   phoneNumber: string;
-  password: string;
   email: string;
   otp?: string | null;
   otpExpiration?: Date | null;

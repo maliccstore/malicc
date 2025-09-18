@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import User from "../models/User";
+import User from "../models/UserModel";
 import { AuthChecker } from "type-graphql";
 import { GraphQLContext } from "../api/graphql/context";
 import { AuthPayload } from "../api/graphql/schemas/user.schema";

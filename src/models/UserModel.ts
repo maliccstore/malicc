@@ -21,18 +21,14 @@ class User extends Model<UserType> implements UserType {
   @Column(DataType.INTEGER)
   public id!: number; // Changed from string to number since it's autoIncrement
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Column(DataType.STRING)
   public username!: string;
 
-  @AllowNull(false)
+  @AllowNull(true)
   @Unique
   @Column(DataType.STRING)
   public email!: string;
-
-  @AllowNull(false)
-  @Column(DataType.STRING)
-  public password!: string;
 
   @AllowNull(false)
   @Unique

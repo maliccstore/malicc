@@ -1,4 +1,4 @@
-import User from "../models/User";
+import User from "../models/UserModel";
 
 export function generateOTP(length = 6): string {
   const otp = Math.random()

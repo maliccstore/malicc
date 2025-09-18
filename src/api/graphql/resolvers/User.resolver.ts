@@ -6,8 +6,6 @@ import {
   UserProfile,
 } from "../schemas/user.schema";
 
-import { hash } from "bcrypt";
-
 import UserService from "../../../service/user.service";
 import { VerificationService } from "../../../service/VerificationService";
 import { UserToken } from "../../../types/user";
@@ -47,11 +45,9 @@ export class UserResolver {
 
   @Mutation(() => SignupResponse)
   async signup(@Arg("input") input: SignupInput): Promise<SignupResponse> {
-    const hashedPassword = await hash(input.password, 10);
-
     let user = await this.userService.createUser({
       ...input,
-      password: hashedPassword,
+      phoneNumber: input.phoneNumber,
       isPhoneVerified: false,
     });
 

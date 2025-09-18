@@ -1,8 +1,8 @@
 import "reflect-metadata";
 // src/index.ts
 import { Service } from "typedi";
-import User from "../models/User";
-import { CreateUserDTO } from "../dtos/CreateUser.dto";
+import User from "../models/UserModel";
+import { CreateUserDTO, NewUserType } from "../dtos/CreateUser.dto";
 import { generateOTP, generateOTPExpiration } from "../utils/otp";
 import { UserType } from "types/user";
 
@@ -11,13 +11,13 @@ import { UserType } from "types/user";
 
 @Service()
 class UserService {
-  async createUser(userData: CreateUserDTO) {
+  async createUser(userData: NewUserType) {
     try {
       const user = await User.create(userData as UserType);
 
       return user;
     } catch (error) {
-      throw new Error("Username or email already exists");
+      throw new Error(`Username or email already exists ${error}`);
     }
   }
 
@@ -81,7 +81,7 @@ class UserService {
     );
 
     if (updatedRows === 0) {
-      throw new Error(`No user found with email ${phoneNumber}`);
+      throw new Error(`No user found with phone number ${phoneNumber}`);
     }
     return { otp, otpExpiration };
   }

@@ -10,8 +10,6 @@ export class UserProfile {
   @Field()
   username: string;
 
-  password: string;
-
   @Field()
   phoneNumber: string;
 
@@ -44,15 +42,6 @@ export class AuthPayload {
 
 @InputType()
 export class SignupInput {
-  @Field()
-  username: string;
-
-  @Field()
-  email: string;
-
-  @Field()
-  password: string;
-
   @Field()
   phoneNumber: string;
 }

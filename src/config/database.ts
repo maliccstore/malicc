@@ -1,7 +1,7 @@
 import { Sequelize } from "sequelize-typescript"; // ← Change import
 import appConfig from "./index";
 import { Product } from "../models/Product";
-import User from "../models/User";
+import User from "../models/UserModel";
 
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,

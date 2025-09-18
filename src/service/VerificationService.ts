@@ -1,4 +1,4 @@
-import User from "../models/User";
+import User from "../models/UserModel";
 //import TwilioService from "./TwilioService";
 import { Service } from "typedi";
 import { UserProfile } from "../api/graphql/schemas/user.schema";
@@ -69,7 +69,6 @@ export class VerificationService {
     const userType: UserProfile = {
       id: user.id,
       username: user.username,
-      password: user.password,
       phoneNumber: String(user.phoneNumber), // Your schema uses string, model uses number
       isPhoneVerified: user.isPhoneVerified, // Map differently named field
       otp: user.otp || "", // Handle null fallback
