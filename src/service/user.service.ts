@@ -38,7 +38,11 @@ class UserService {
   }
   // CreateUserDTO: Make a new DTO for the User
   async getUserByPhone(phoneNumber: string): Promise<User | null> {
-    return User.findOne({ where: { phoneNumber } });
+    try {
+      return User.findOne({ where: { phoneNumber } });
+    } catch (error) {
+      throw new Error(`Error fetching user by phone: ${error}`);
+    }
   }
   async findAllUsers(): Promise<User[]> {
     const users = await User.findAll();

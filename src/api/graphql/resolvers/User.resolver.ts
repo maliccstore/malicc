@@ -39,8 +39,11 @@ export class UserResolver {
   @Query(() => UserProfile, { nullable: true })
   async user(@Ctx() { user }: { user: UserToken }) {
     if (!user) throw new Error("Not authenticated");
-
-    return this.userService.getUserByPhone(user.phoneNumber);
+    try {
+      return this.userService.getUserByPhone(user.phoneNumber);
+    } catch (error) {
+      throw new Error("Failed to fetch user");
+    }
   }
 
   @Mutation(() => SignupResponse)
