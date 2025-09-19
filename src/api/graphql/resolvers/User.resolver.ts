@@ -9,6 +9,7 @@ import {
 import UserService from "../../../service/user.service";
 import { VerificationService } from "../../../service/VerificationService";
 import { UserToken } from "../../../types/user";
+import { UserRole } from "../../../enums/UserRole";
 
 @Service()
 @Resolver()
@@ -19,7 +20,7 @@ export class UserResolver {
   ) {}
 
   // Deprecate it in production
-  @Authorized()
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Query(() => [UserProfile])
   async users(@Ctx() { user }: { user: UserToken }) {
     console.log(user);

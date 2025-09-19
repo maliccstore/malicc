@@ -11,6 +11,7 @@ import {
   ProductFilterInput,
 } from "../inputs/ProductInput";
 import { Service } from "typedi";
+import { UserRole } from "../../../enums/UserRole";
 
 @Service()
 @Resolver(() => Product)
@@ -46,7 +47,7 @@ export class ProductResolver {
     }
   }
 
-  @Authorized()
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Mutation(() => ProductResponse)
   async createProduct(
     @Arg("input") input: CreateProductInput
@@ -66,7 +67,7 @@ export class ProductResolver {
     }
   }
 
-  @Authorized()
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Mutation(() => ProductResponse)
   async updateProduct(
     @Arg("id") id: string,
@@ -93,7 +94,7 @@ export class ProductResolver {
     }
   }
 
-  @Authorized()
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Mutation(() => ProductResponse)
   async deleteProduct(@Arg("id") id: string): Promise<ProductResponse> {
     try {
@@ -116,7 +117,7 @@ export class ProductResolver {
     }
   }
 
-  @Authorized()
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Mutation(() => ProductResponse)
   async toggleProductStatus(@Arg("id") id: string): Promise<ProductResponse> {
     try {

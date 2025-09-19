@@ -4,10 +4,17 @@ import { AuthChecker } from "type-graphql";
 import { GraphQLContext } from "../api/graphql/context";
 import { AuthPayload } from "../api/graphql/schemas/user.schema";
 import { Request } from "express";
+import { UserRole } from "@/enums/UserRole";
+import { ForbiddenError } from "../errors";
 
 export function generateJWT(user: User) {
   return jwt.sign(
-    { id: user.id, phoneNumber: user.phoneNumber, email: user.email },
+    {
+      id: user.id,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+      role: user.role,
+    },
     process.env.JWT_SECRET!,
     { expiresIn: "7d" }
   );
@@ -26,23 +33,30 @@ export function verifyToken(token: string): AuthPayload {
   if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not configured");
   return jwt.verify(token, process.env.JWT_SECRET) as AuthPayload;
 }
-export const authChecker: AuthChecker<GraphQLContext> = (
+
+export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
   { context },
-  roles: string[]
+  roles // Typescript will now enforce that these are valid UserRole values
 ) => {
+  // 1. Check Authentication (is there a user?)
   if (!context.user) {
+    // It's common to throw a specific error here, like AuthenticationError
     throw new Error("Not authenticated");
   }
 
-  // Role-based authorization
+  // 2. Check Authorization (does the user have the right role?)
   if (roles.length > 0) {
-    // Example: Check if user has required roles
-    // const userRoles = context.user.roles || [];
-    // return roles.some(role => userRoles.includes(role));
-
-    // For now, just return false if roles are required but not implemented
-    return false;
+    // Check if the user's role (from context) is included in the required roles list
+    // Assuming context.user.role is a single string like "admin" or "customer"
+    if (!roles.includes(context.user.role as UserRole)) {
+      // User is authenticated but doesn't have the required role
+      // throw new ForbiddenError("Not authorized");
+      throw new ForbiddenError(
+        "You do not have permission to perform this action."
+      );
+    }
   }
 
+  // 3. If we get here, the user is authenticated and authorized!
   return true;
 };
