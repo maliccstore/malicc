@@ -1,7 +1,18 @@
 // src/api/graphql/schemas/user.schema.ts
 
-import { ObjectType, Field, ID, InputType } from "type-graphql";
+import { UserRole } from "../../../enums/UserRole";
+import {
+  ObjectType,
+  Field,
+  ID,
+  InputType,
+  registerEnumType,
+} from "type-graphql";
 
+registerEnumType(UserRole, {
+  name: "UserRole",
+  description: "The role of the user in the system",
+});
 @ObjectType()
 export class UserProfile {
   @Field(() => ID)
@@ -15,6 +26,9 @@ export class UserProfile {
 
   @Field()
   isPhoneVerified: boolean;
+
+  @Field(() => UserRole)
+  role: UserRole;
 
   // @Field({ nullable: true })
   otp?: string | null;

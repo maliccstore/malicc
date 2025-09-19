@@ -1,3 +1,4 @@
+import { UserRole } from "@/enums/UserRole";
 import { CreateUserDTO } from "../dtos/CreateUser.dto";
 
 export type UserType = {
@@ -7,6 +8,7 @@ export type UserType = {
   email: string;
   otp?: string | null;
   otpExpiration?: Date | null;
+  role: UserRole;
   isPhoneVerified: boolean;
   createdAt: Date;
   updatedAt: Date;

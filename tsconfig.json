@@ -3,7 +3,7 @@
   "compilerOptions": {
     "target": "ES6",
     "module": "CommonJS",
-    "baseUrl": "./src", 
+    "baseUrl": "./", 
     "rootDir": "./src",
     "outDir": "./dist",
     "esModuleInterop": true,
@@ -12,14 +12,12 @@
     "emitDecoratorMetadata": true, //Needed for decorator-based libraries
     "experimentalDecorators": true, //Required for decorator syntax
     "strictPropertyInitialization": false, //Disables the requirement for property initialization
-    //     "paths": {
-    //   "@/*": ["src/*"],
-    //   "@types/*": ["types/*"]                        
-    // },
-    // "incremental": true
+        "paths": {
+      "@/*": ["src/*"]
+    },
   },
-  "include": ["src"],
-  "exclude": ["node_modules"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules","dist"]
 }
 
 // {

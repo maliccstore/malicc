@@ -1,5 +1,5 @@
 // src/types/product.ts
-export type Product = {
+export type ProductType = {
   id: string;
   name: string;
   description: string;

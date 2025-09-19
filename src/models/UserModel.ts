@@ -8,8 +8,11 @@ import {
   Default,
   AllowNull,
   Unique,
+  CreatedAt,
+  UpdatedAt,
 } from "sequelize-typescript";
 import { UserType } from "../types/user";
+import { UserRole } from "../enums/UserRole";
 
 @Table({
   tableName: "users",
@@ -19,7 +22,7 @@ class User extends Model<UserType> implements UserType {
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
-  public id!: number; // Changed from string to number since it's autoIncrement
+  public id!: number;
 
   @AllowNull(true)
   @Column(DataType.STRING)
@@ -35,7 +38,7 @@ class User extends Model<UserType> implements UserType {
   @Column({
     type: DataType.STRING,
     validate: {
-      is: /^\+?[1-9]\d{1,14}$/, // E.164 format
+      is: /^\+?[1-9]\d{1,14}$/,
     },
   })
   public phoneNumber!: string;
@@ -43,6 +46,10 @@ class User extends Model<UserType> implements UserType {
   @Default(false)
   @Column(DataType.BOOLEAN)
   public isPhoneVerified!: boolean;
+
+  @Default(UserRole.CUSTOMER)
+  @Column(DataType.ENUM(...Object.values(UserRole)))
+  public role!: UserRole;
 
   @AllowNull(true)
   @Column(DataType.STRING)
@@ -52,9 +59,11 @@ class User extends Model<UserType> implements UserType {
   @Column(DataType.DATE)
   public otpExpiration?: Date | null;
 
+  @CreatedAt
   @Column(DataType.DATE)
   public readonly createdAt!: Date;
 
+  @UpdatedAt
   @Column(DataType.DATE)
   public readonly updatedAt!: Date;
 }
