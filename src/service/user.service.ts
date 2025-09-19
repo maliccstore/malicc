@@ -4,7 +4,7 @@ import { Service } from "typedi";
 import User from "../models/UserModel";
 import { CreateUserDTO, NewUserType } from "../dtos/CreateUser.dto";
 import { generateOTP, generateOTPExpiration } from "../utils/otp";
-import { UserType } from "types/user";
+import { UserType } from "../types/user";
 
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User

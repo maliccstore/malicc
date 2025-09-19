@@ -53,6 +53,7 @@ export class UserResolver {
       ...input,
       phoneNumber: input.phoneNumber,
       isPhoneVerified: false,
+      role: UserRole.CUSTOMER,
     });
 
     if (!user) {
