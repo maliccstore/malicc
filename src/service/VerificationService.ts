@@ -74,6 +74,7 @@ export class VerificationService {
       otp: user.otp || "", // Handle null fallback
       otpExpiration: user.otpExpiration, // Convert Date to string
       email: user.email,
+      role: user.role,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

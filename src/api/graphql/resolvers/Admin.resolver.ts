@@ -7,7 +7,7 @@ import {
   requireSuperAdmin,
 } from "../../../middlewares/adminAuth";
 import { Context } from "../context";
-import { UserRole } from "enums/UserRole";
+import { UserRole } from "../../../enums/UserRole";
 
 @Resolver()
 export class AdminResolver {

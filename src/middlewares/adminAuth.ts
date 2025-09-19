@@ -10,7 +10,7 @@ export const requireAdmin = (context: Context) => {
 
   if (
     context.user.role !== UserRole.ADMIN &&
-    context.user.role !== UserRole.SUPER_ADMIN
+    context.user.role !== UserRole.SUPERADMIN
   ) {
     throw new ForbiddenError("Admin access required");
   }
@@ -21,7 +21,7 @@ export const requireSuperAdmin = (context: Context) => {
     throw new AuthenticationError("Authentication required");
   }
 
-  if (context.user.role !== UserRole.SUPER_ADMIN) {
+  if (context.user.role !== UserRole.SUPERADMIN) {
     throw new ForbiddenError("Super admin access required");
   }
 };
