@@ -54,8 +54,7 @@ export class ProductService {
       ];
     }
 
-    const products = await Product.findAll();
-
+    const products = await Product.findAll({ where });
     const totalCount = await Product.count({ where });
 
     return { products, totalCount };
