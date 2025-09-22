@@ -1,6 +1,6 @@
 import { Service } from "typedi";
 import { Product } from "../models/Product";
-import { Op } from "sequelize";
+import { Op, literal } from "sequelize";
 
 @Service()
 export class ProductService {
@@ -17,7 +17,11 @@ export class ProductService {
   }
 
   async getProductById(id: string): Promise<Product | null> {
-    return await Product.findByPk(id);
+    const product = await Product.findByPk(id);
+    if (!product) {
+      throw new Error(`Product with ID ${id} not found`);
+    }
+    return product;
   }
 
   async getAllProducts(filters?: {
@@ -26,7 +30,12 @@ export class ProductService {
     maxPrice?: number;
     isActive?: boolean;
     search?: string;
-  }): Promise<{ products: Product[]; totalCount: number }> {
+  }): Promise<{
+    products: Product[];
+    totalCount: number;
+    message?: string;
+    success?: boolean;
+  }> {
     const where: any = {};
 
     if (filters?.category) {
@@ -47,17 +56,131 @@ export class ProductService {
       where.isActive = filters.isActive;
     }
 
+    // Handle full-text search
+    let searchCondition: any = {};
     if (filters?.search) {
-      where[Op.or] = [
-        { name: { [Op.iLike]: `%${filters.search}%` } },
-        { description: { [Op.iLike]: `%${filters.search}%` } },
-      ];
+      searchCondition = {
+        [Op.and]: literal(`
+          search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
+            filters.search
+          )}')
+        `),
+      };
     }
 
-    const products = await Product.findAll({ where });
-    const totalCount = await Product.count({ where });
+    const finalWhere = { ...where, ...searchCondition };
 
-    return { products, totalCount };
+    const products = await Product.findAll({
+      where: finalWhere,
+      order: filters?.search
+        ? [
+            [
+              literal(
+                `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+                  filters.search
+                )}'))`
+              ),
+              "DESC",
+            ],
+          ]
+        : [["createdAt", "DESC"]],
+    });
+
+    const totalCount = await Product.count({
+      where: finalWhere,
+    });
+
+    // Add message for empty results
+    let message: string | undefined;
+    let success: boolean | undefined;
+    if (totalCount === 0) {
+      success = false;
+      if (filters?.search) {
+        message = `No products found matching your search criteria: "${filters.search}"`;
+      } else if (filters?.category) {
+        message = `No products found in category: "${filters.category}"`;
+      } else if (Object.keys(filters || {}).length > 0) {
+        message = "No products found matching the specified filters";
+      } else {
+        message = "No products found in the database";
+      }
+    }
+
+    return { success, products, totalCount, message };
+  }
+
+  async fullTextSearch(
+    query: string,
+    filters?: {
+      category?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      isActive?: boolean;
+    }
+  ): Promise<{ products: Product[]; totalCount: number; message?: string }> {
+    const where: any = {};
+
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+
+    if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
+      where.price = {};
+      if (filters.minPrice !== undefined) {
+        where.price[Op.gte] = filters.minPrice;
+      }
+      if (filters.maxPrice !== undefined) {
+        where.price[Op.lte] = filters.maxPrice;
+      }
+    }
+
+    if (filters?.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
+    const searchCondition = {
+      [Op.and]: literal(`
+        search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
+          query
+        )}')
+      `),
+    };
+
+    const finalWhere = { ...where, ...searchCondition };
+
+    const products = await Product.findAll({
+      where: finalWhere,
+      order: [
+        [
+          literal(
+            `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+              query
+            )}'))`
+          ),
+          "DESC",
+        ],
+        ["createdAt", "DESC"],
+      ],
+    });
+
+    const totalCount = await Product.count({
+      where: finalWhere,
+    });
+
+    // Add message for empty search results
+    let message: string | undefined;
+    if (totalCount === 0) {
+      message = `No products found matching your search: "${query}"`;
+      if (filters?.category) {
+        message += ` in category: "${filters.category}"`;
+      }
+    }
+
+    return { products, totalCount, message };
+  }
+
+  private escapeSearchQuery(query: string): string {
+    return query.replace(/'/g, "''").replace(/\\/g, "\\\\");
   }
 
   async updateProduct(
@@ -73,7 +196,9 @@ export class ProductService {
     }
   ): Promise<Product | null> {
     const product = await Product.findByPk(id);
-    if (!product) return null;
+    if (!product) {
+      throw new Error(`Product with ID ${id} not found`);
+    }
 
     await product.update(updateData);
     return product;
@@ -81,7 +206,9 @@ export class ProductService {
 
   async deleteProduct(id: string): Promise<boolean> {
     const product = await Product.findByPk(id);
-    if (!product) return false;
+    if (!product) {
+      throw new Error(`Product with ID ${id} not found`);
+    }
 
     await product.destroy();
     return true;
@@ -89,16 +216,27 @@ export class ProductService {
 
   async toggleProductStatus(id: string): Promise<Product | null> {
     const product = await Product.findByPk(id);
-    if (!product) return null;
+    if (!product) {
+      throw new Error(`Product with ID ${id} not found`);
+    }
 
     await product.update({ isActive: !product.isActive });
     return product;
   }
 
-  async getProductsByCategory(category: string): Promise<Product[]> {
-    return await Product.findAll({
+  async getProductsByCategory(
+    category: string
+  ): Promise<{ products: Product[]; message?: string }> {
+    const products = await Product.findAll({
       where: { category, isActive: true },
       order: [["createdAt", "DESC"]],
     });
+
+    let message: string | undefined;
+    if (products.length === 0) {
+      message = `No active products found in category: "${category}"`;
+    }
+
+    return { products, message };
   }
 }

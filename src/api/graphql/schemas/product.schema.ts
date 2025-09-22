@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Float } from "type-graphql";
+import { ObjectType, Field, ID, Float, InputType } from "type-graphql";
 
 @ObjectType()
 export class Product {
@@ -31,6 +31,9 @@ export class Product {
 
   @Field({ nullable: true })
   updatedAt?: Date;
+
+  @Field({ nullable: true })
+  search_vector?: string;
 }
 
 @ObjectType()
@@ -58,4 +61,22 @@ export class ProductsResponse {
 
   @Field(() => Float)
   totalCount!: number;
+}
+
+@InputType()
+export class ProductFilterInput {
+  @Field({ nullable: true })
+  category?: string;
+
+  @Field({ nullable: true })
+  minPrice?: number;
+
+  @Field({ nullable: true })
+  maxPrice?: number;
+
+  @Field({ nullable: true })
+  isActive?: boolean;
+
+  @Field({ nullable: true })
+  search?: string;
 }

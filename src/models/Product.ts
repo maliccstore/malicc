@@ -1,3 +1,4 @@
+// src/models/Product.ts
 import {
   Table,
   Column,
@@ -5,6 +6,8 @@ import {
   DataType,
   Default,
   AllowNull,
+  BeforeSave,
+  BeforeUpdate,
 } from "sequelize-typescript";
 
 @Table({
@@ -62,4 +65,24 @@ export class Product extends Model {
     type: DataType.STRING(100),
   })
   sku?: string;
+
+  // Add full-text search vector column
+  @Column({
+    type: DataType.TSVECTOR,
+    allowNull: true,
+  })
+  search_vector!: any;
+
+  @BeforeSave
+  @BeforeUpdate
+  static async updateSearchVector(instance: Product) {
+    // Update the search vector using PostgreSQL's to_tsvector function
+    const [result] = await Product.sequelize!.query(
+      `SELECT to_tsvector('english', COALESCE(name, '') || ' ' || COALESCE(description, '')) as vector`
+    );
+
+    if (result && result.length > 0) {
+      instance.search_vector = (result[0] as any).vector;
+    }
+  }
 }

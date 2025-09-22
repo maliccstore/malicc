@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Arg, Args, Authorized } from "type-graphql";
+import { Resolver, Query, Mutation, Arg, Authorized } from "type-graphql";
 import { ProductService } from "../../../service/product.service";
 import {
   Product,
@@ -18,9 +18,21 @@ import { UserRole } from "../../../enums/UserRole";
 export class ProductResolver {
   constructor(private readonly productService: ProductService) {}
 
-  @Query(() => Product, { nullable: true })
-  async product(@Arg("id") id: string): Promise<Product | null> {
-    return await this.productService.getProductById(id);
+  @Query(() => ProductResponse)
+  async product(@Arg("id") id: string): Promise<ProductResponse> {
+    try {
+      const product = await this.productService.getProductById(id);
+      return {
+        success: true,
+        message: "Product fetched successfully",
+        product: product || undefined,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Product not found",
+      };
+    }
   }
 
   @Query(() => ProductsResponse)
@@ -28,19 +40,19 @@ export class ProductResolver {
     @Arg("filters", { nullable: true }) filters?: ProductFilterInput
   ): Promise<ProductsResponse> {
     try {
-      const { products, totalCount } = await this.productService.getAllProducts(
-        filters
-      );
+      const { products, totalCount, message, success } =
+        await this.productService.getAllProducts(filters);
+
       return {
-        success: true,
-        message: "Products fetched successfully",
+        success: success !== undefined ? success : true,
+        message: message || "Products fetched successfully",
         products,
         totalCount,
       };
     } catch (error) {
       return {
         success: false,
-        message: `Failed to fetch products \n Error: ${error}`,
+        message: `Failed to fetch products. Error: ${error}`,
         products: [],
         totalCount: 0,
       };
@@ -62,7 +74,7 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to create product \n ${error}`,
+        message: `Failed to create product. Error: ${error}`,
       };
     }
   }
@@ -75,21 +87,16 @@ export class ProductResolver {
   ): Promise<ProductResponse> {
     try {
       const product = await this.productService.updateProduct(id, input);
-      if (!product) {
-        return {
-          success: false,
-          message: "Product not found",
-        };
-      }
       return {
         success: true,
         message: "Product updated successfully",
-        product,
+        product: product || undefined,
       };
     } catch (error) {
       return {
         success: false,
-        message: "Failed to update product",
+        message:
+          error instanceof Error ? error.message : "Failed to update product",
       };
     }
   }
@@ -99,12 +106,6 @@ export class ProductResolver {
   async deleteProduct(@Arg("id") id: string): Promise<ProductResponse> {
     try {
       const success = await this.productService.deleteProduct(id);
-      if (!success) {
-        return {
-          success: false,
-          message: "Product not found",
-        };
-      }
       return {
         success: true,
         message: "Product deleted successfully",
@@ -112,7 +113,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: "Failed to delete product",
+        message:
+          error instanceof Error ? error.message : "Failed to delete product",
       };
     }
   }
@@ -122,31 +124,71 @@ export class ProductResolver {
   async toggleProductStatus(@Arg("id") id: string): Promise<ProductResponse> {
     try {
       const product = await this.productService.toggleProductStatus(id);
-      if (!product) {
-        return {
-          success: false,
-          message: "Product not found",
-        };
-      }
       return {
         success: true,
         message: `Product ${
-          product.isActive ? "activated" : "deactivated"
+          product?.isActive ? "activated" : "deactivated"
         } successfully`,
-        product,
+        product: product || undefined,
       };
     } catch (error) {
       return {
         success: false,
-        message: "Failed to toggle product status",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to toggle product status",
       };
     }
   }
 
-  @Query(() => [Product])
+  @Query(() => ProductsResponse)
   async productsByCategory(
     @Arg("category") category: string
-  ): Promise<Product[]> {
-    return await this.productService.getProductsByCategory(category);
+  ): Promise<ProductsResponse> {
+    try {
+      const { products, message } =
+        await this.productService.getProductsByCategory(category);
+
+      return {
+        success: true,
+        message:
+          message || `Products in category "${category}" fetched successfully`,
+        products,
+        totalCount: products.length,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to fetch products by category. Error: ${error}`,
+        products: [],
+        totalCount: 0,
+      };
+    }
+  }
+
+  @Query(() => ProductsResponse)
+  async searchProducts(
+    @Arg("query") query: string,
+    @Arg("filters", { nullable: true }) filters?: ProductFilterInput
+  ): Promise<ProductsResponse> {
+    try {
+      const { products, totalCount, message } =
+        await this.productService.fullTextSearch(query, filters);
+
+      return {
+        success: true,
+        message: message || "Products searched successfully",
+        products,
+        totalCount,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to search products. Error: ${error}`,
+        products: [],
+        totalCount: 0,
+      };
+    }
   }
 }
