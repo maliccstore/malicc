@@ -20,12 +20,14 @@ module.exports = {
         onDelete: "CASCADE",
       },
       userId: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER, // Changed from STRING to INTEGER
         allowNull: true,
         references: {
           model: "users",
           key: "id",
         },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
       },
       items: {
         type: Sequelize.JSONB,

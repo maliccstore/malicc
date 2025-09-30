@@ -7,23 +7,26 @@ import { CartService } from "../../service/cart.service";
 import { SessionData } from "../../interface/session";
 import { CartData } from "../../interface/cart";
 
+// Define a proper user type if you have one, otherwise use this:
+interface ContextUser {
+  id: number;
+  role: string;
+  phoneNumber: string;
+  isPhoneVerified: boolean;
+  // Add other user properties as needed
+}
 export interface Context {
   req: Request;
   token?: string;
-  user?: {
-    id: number;
-    phoneNumber: string;
-    role: UserRole;
-    isPhoneVerified: boolean;
-  };
+  user?: ContextUser | null;
 }
 
 export interface GraphQLContext {
   req: Request;
   res: Response;
-  user?: any;
-  session?: SessionData;
-  cart?: CartData;
+  user?: ContextUser | null;
+  session?: SessionData | undefined;
+  // REMOVE cart from context since it becomes stale
   sessionService: SessionService;
   cartService: CartService;
 }
@@ -38,32 +41,28 @@ export const createContext = async ({
   const sessionService = Container.get(SessionService);
   const cartService = Container.get(CartService);
 
-  let session: SessionData | undefined;
-  let cart: CartData | undefined;
-  let user = req.user; // Your existing user from JWT
+  let session: SessionData | undefined = (req as any).session;
+  const user = (req as any).user as ContextUser | undefined;
+  const needsNewSession = (req as any).needsNewSession;
 
-  // Try to get session ID from various sources
+  console.log("🔍 Context creation started");
+
   let sessionId = req.cookies?.sessionId;
 
-  if (!sessionId && req.headers.authorization?.startsWith("Session ")) {
-    sessionId = req.headers.authorization.substring(8);
-  }
+  try {
+    // Session creation logic remains the same...
+    if (!session && needsNewSession) {
+      console.log("🆕 Creating new session...");
+      const newSession = await sessionService.createSession({
+        userId: user?.id,
+        userRole: user?.role || "guest",
+        userAgent: req.headers["user-agent"],
+        ipAddress: req.ip,
+      });
 
-  // Find or create session
-  if (sessionId) {
-    session = await sessionService.findSession(sessionId);
-  }
+      session = newSession;
+      sessionId = session.sessionId;
 
-  if (!session) {
-    session = await sessionService.createSession({
-      userId: user?.id,
-      userRole: user?.role || "guest",
-      userAgent: req.headers["user-agent"],
-      ipAddress: req.ip,
-    });
-
-    // Set cookie for web clients
-    if (!req.headers.authorization?.startsWith("Bearer ")) {
       res.cookie("sessionId", session.sessionId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
@@ -72,35 +71,32 @@ export const createContext = async ({
       });
     }
 
-    sessionId = session.sessionId;
-  }
-
-  // Get or create cart for this session
-  if (sessionId) {
-    cart = await cartService.getOrCreateCart(sessionId, user?.id);
-  }
-
-  // If user is logged in but session is not associated, convert it
-  if (user && session && !session.userId) {
-    session = await sessionService.convertToUserSession(
-      session.sessionId,
-      user.id,
-      user.role
-    );
-
-    // Merge guest cart with user cart
-    if (cart) {
-      cart = await cartService.mergeCarts(session.sessionId, user.id);
+    // Session conversion logic remains...
+    if (user && session && !session.userId) {
+      console.log("🔄 Converting guest session to user session");
+      const convertedSession = await sessionService.convertToUserSession(
+        session.sessionId,
+        user.id,
+        user.role
+      );
+      session = convertedSession || session;
     }
+
+    console.log("🎉 Final context:", {
+      sessionId: session?.sessionId,
+      userRole: session?.userRole,
+      userId: user?.id,
+    });
+  } catch (error) {
+    console.error("❌ Critical error in context creation:", error);
   }
 
   return {
     req,
     res,
-    user,
+    user: user || null,
     session,
-    cart,
     sessionService,
-    cartService,
+    cartService, // Keep cartService for resolvers to use
   };
 };

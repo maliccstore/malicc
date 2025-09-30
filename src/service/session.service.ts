@@ -1,21 +1,20 @@
 import { Service } from "typedi";
 import { Session } from "../models/Session";
 import { SessionData, CreateSessionInput } from "../interface/session";
-import { v4 as uuidv4 } from "uuid";
 
 @Service()
 export class SessionService {
   private readonly SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
   private readonly GUEST_SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-  // Generate session ID
+  // Generate session ID using crypto.randomUUID()
   private generateSessionId(): string {
-    return `sess_${uuidv4()}`;
+    return `sess_${crypto.randomUUID()}`;
   }
 
-  // Generate guest ID
+  // Generate guest ID using crypto.randomUUID()
   private generateGuestId(): string {
-    return `guest_${uuidv4()}`;
+    return `guest_${crypto.randomUUID()}`;
   }
 
   // Create a new session
@@ -46,7 +45,7 @@ export class SessionService {
     return this.mapToSessionData(session);
   }
 
-  // Find session by ID
+  // ... rest of your session service methods remain the same
   async findSession(sessionId: string): Promise<SessionData | null> {
     const session = await Session.findByPk(sessionId);
 
@@ -64,7 +63,6 @@ export class SessionService {
     return this.mapToSessionData(session);
   }
 
-  // Find session by user ID (for logged-in users)
   async findSessionByUserId(userId: string): Promise<SessionData | null> {
     const session = await Session.findOne({
       where: { userId },
@@ -80,7 +78,6 @@ export class SessionService {
     return this.mapToSessionData(session);
   }
 
-  // Update session data
   async updateSession(
     sessionId: string,
     updates: Partial<SessionData>
@@ -99,7 +96,6 @@ export class SessionService {
     return this.mapToSessionData(session);
   }
 
-  // Convert user session (when guest logs in)
   async convertToUserSession(
     sessionId: string,
     userId: string,
@@ -121,7 +117,6 @@ export class SessionService {
     return this.mapToSessionData(session);
   }
 
-  // Destroy session
   async destroySession(sessionId: string): Promise<boolean> {
     const result = await Session.destroy({
       where: { sessionId },
@@ -130,7 +125,6 @@ export class SessionService {
     return result > 0;
   }
 
-  // Clean up expired sessions
   async cleanupExpiredSessions(): Promise<number> {
     const result = await Session.destroy({
       where: {
@@ -143,7 +137,6 @@ export class SessionService {
     return result;
   }
 
-  // Helper to map Sequelize model to SessionData interface
   private mapToSessionData(session: Session): SessionData {
     return {
       sessionId: session.sessionId,

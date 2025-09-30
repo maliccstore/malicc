@@ -14,7 +14,9 @@ import Container from "typedi";
 import { ProductResolver } from "./api/graphql/resolvers/Products.resolver";
 import { SessionResolver } from "./api/graphql/resolvers/Session.resolver";
 import { CartResolver } from "./api/graphql/resolvers/Cart.resolver";
-
+import { createContext } from "./api/graphql/context";
+import cookieParser from "cookie-parser";
+import { sessionMiddleware } from "./middlewares/session";
 async function bootstrap() {
   dotenv.config();
   const app: Express = express();
@@ -44,6 +46,8 @@ async function bootstrap() {
 
   await apolloServer.start();
 
+  // cookie-parser
+  app.use(cookieParser());
   // ✅ CORS Configuration - Handled in Node.js
   const allowedOrigins = [
     "https://malicc.store",
@@ -88,21 +92,33 @@ async function bootstrap() {
   // Apply CORS to all routes
   app.use(cors(corsOptions));
 
+  // Session Middleware
+  app.use(sessionMiddleware);
+  // GraphQL endpoint
   // GraphQL endpoint
   app.use(
     "/graphql",
     express.json(),
     expressMiddleware(apolloServer, {
-      context: async ({ req }) => {
+      context: async ({ req, res }) => {
+        // Your existing token logic
         const token = getTokenFromRequest(req);
-        if (!token) return { user: null };
+        let user = null;
 
-        try {
-          const payload = verifyToken(token);
-          return { user: payload };
-        } catch (error) {
-          return { user: null };
+        if (token) {
+          try {
+            const payload = verifyToken(token);
+            user = payload;
+            // Attach user to request for context
+            (req as any).user = user;
+          } catch (error) {
+            // Token is invalid, proceed without user
+            console.log("Invalid token:", error);
+          }
         }
+
+        // Use the createContext function
+        return createContext({ req, res });
       },
     })
   );

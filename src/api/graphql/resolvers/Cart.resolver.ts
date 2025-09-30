@@ -4,35 +4,25 @@ import {
   Mutation,
   Arg,
   Ctx,
-  Authorized,
   InputType,
   Field,
 } from "type-graphql";
 import { Service } from "typedi";
 import { CartService } from "../../../service/cart.service";
 import { GraphQLContext } from "../../graphql/context";
-import { CartData } from "../../../interface/cart";
+import { CartType } from "../../../types/cart.types";
 
 @InputType()
-class AddToCartInput {
+export class AddToCartInput {
   @Field()
   productId!: string;
 
   @Field()
   quantity!: number;
-
-  @Field()
-  price!: number;
-
-  @Field()
-  name!: string;
-
-  @Field({ nullable: true })
-  image?: string;
 }
 
 @InputType()
-class UpdateCartItemInput {
+export class UpdateCartItemInput {
   @Field()
   productId!: string;
 
@@ -45,56 +35,135 @@ class UpdateCartItemInput {
 export class CartResolver {
   constructor(private cartService: CartService) {}
 
-  @Query(() => CartData, { nullable: true })
-  async getCart(@Ctx() ctx: GraphQLContext): Promise<CartData | null> {
+  @Query(() => CartType, { nullable: true })
+  async getCart(@Ctx() ctx: GraphQLContext): Promise<CartType | null> {
     if (!ctx.session) {
       throw new Error("No active session");
     }
-    return ctx.cart || null;
+
+    // Refresh prices before returning cart
+    const freshCart = await this.cartService.refreshCartPrices(
+      ctx.session.sessionId
+    );
+
+    console.log("🛒 Fresh cart data:", {
+      cartId: freshCart.id,
+      items: freshCart.items,
+      totalItems: freshCart.totalItems,
+    });
+
+    return this.mapCartDataToCartType(freshCart);
   }
 
-  @Mutation(() => CartData)
+  @Mutation(() => CartType)
   async addToCart(
     @Arg("input") input: AddToCartInput,
     @Ctx() ctx: GraphQLContext
-  ): Promise<CartData> {
+  ): Promise<CartType> {
     if (!ctx.session) {
       throw new Error("No active session");
     }
 
-    return this.cartService.addToCart(ctx.session.sessionId, input);
+    const cart = await this.cartService.addToCart(ctx.session.sessionId, input);
+
+    console.log("✅ Added to cart:", {
+      cartId: cart.id,
+      productId: input.productId,
+      quantity: input.quantity,
+      itemsCount: cart.items.length,
+      totalItems: cart.totalItems,
+    });
+
+    return this.mapCartDataToCartType(cart);
   }
 
-  @Mutation(() => CartData)
+  @Mutation(() => CartType)
   async updateCartItem(
     @Arg("input") input: UpdateCartItemInput,
     @Ctx() ctx: GraphQLContext
-  ): Promise<CartData> {
+  ): Promise<CartType> {
     if (!ctx.session) {
       throw new Error("No active session");
     }
 
-    return this.cartService.updateCartItem(ctx.session.sessionId, input);
+    const cart = await this.cartService.updateCartItem(
+      ctx.session.sessionId,
+      input
+    );
+    return this.mapCartDataToCartType(cart);
   }
 
-  @Mutation(() => CartData)
+  @Mutation(() => CartType)
   async removeFromCart(
     @Arg("productId") productId: string,
     @Ctx() ctx: GraphQLContext
-  ): Promise<CartData> {
+  ): Promise<CartType> {
     if (!ctx.session) {
       throw new Error("No active session");
     }
 
-    return this.cartService.removeFromCart(ctx.session.sessionId, productId);
+    const cart = await this.cartService.removeFromCart(
+      ctx.session.sessionId,
+      productId
+    );
+    return this.mapCartDataToCartType(cart);
   }
 
-  @Mutation(() => CartData)
-  async clearCart(@Ctx() ctx: GraphQLContext): Promise<CartData> {
+  @Mutation(() => CartType)
+  async clearCart(@Ctx() ctx: GraphQLContext): Promise<CartType> {
     if (!ctx.session) {
       throw new Error("No active session");
     }
 
-    return this.cartService.clearCart(ctx.session.sessionId);
+    const cart = await this.cartService.clearCart(ctx.session.sessionId);
+    return this.mapCartDataToCartType(cart);
+  }
+
+  @Mutation(() => CartType)
+  async refreshCart(@Ctx() ctx: GraphQLContext): Promise<CartType> {
+    if (!ctx.session) {
+      throw new Error("No active session");
+    }
+
+    // Force refresh of all cart prices
+    const cart = await this.cartService.refreshCartPrices(
+      ctx.session.sessionId
+    );
+    return this.mapCartDataToCartType(cart);
+  }
+
+  private mapCartDataToCartType(cartData: any): CartType {
+    const items = cartData.items || [];
+    const actualTotalItems = items.reduce(
+      (sum: number, item: any) => sum + item.quantity,
+      0
+    );
+
+    // Log any inconsistencies
+    if (cartData.totalItems !== actualTotalItems) {
+      console.warn("🔄 Correcting cart totals:", {
+        cartId: cartData.id,
+        reported: cartData.totalItems,
+        actual: actualTotalItems,
+      });
+    }
+
+    return {
+      id: cartData.id,
+      sessionId: cartData.sessionId,
+      userId: cartData.userId,
+      items: items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        name: item.name,
+        image: item.image,
+        addedAt: item.addedAt,
+        updatedAt: item.updatedAt,
+      })),
+      totalAmount: cartData.totalAmount,
+      totalItems: actualTotalItems, // Always use calculated total
+      lastUpdated: cartData.lastUpdated,
+    };
   }
 }

@@ -11,7 +11,7 @@ export interface CartItem {
 export interface CartData {
   id: string;
   sessionId: string;
-  userId?: string;
+  userId?: number;
   items: CartItem[];
   totalAmount: number;
   totalItems: number;
@@ -21,9 +21,6 @@ export interface CartData {
 export interface AddToCartInput {
   productId: string;
   quantity: number;
-  price: number;
-  name: string;
-  image?: string;
 }
 
 export interface UpdateCartItemInput {

@@ -2,6 +2,8 @@
 
 /** @type {import('sequelize-cli').Migration} */
 
+/** @type {import('sequelize-cli').Migration} */
+
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable("sessions", {
@@ -11,12 +13,14 @@ module.exports = {
         allowNull: false,
       },
       userId: {
-        type: Sequelize.STRING,
+        type: Sequelize.INTEGER,
         allowNull: true,
         references: {
           model: "users",
           key: "id",
         },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
       },
       guestId: {
         type: Sequelize.STRING,

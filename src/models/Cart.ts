@@ -40,8 +40,8 @@ export class Cart extends Model {
 
   @Index("carts_user_id_index")
   @AllowNull(true)
-  @Column(DataType.STRING)
-  userId?: string;
+  @Column(DataType.INTEGER)
+  userId?: number;
 
   @Column({
     type: DataType.JSONB,
@@ -70,15 +70,18 @@ export class Cart extends Model {
 
   // Helper method to calculate totals
   calculateTotals(): void {
-    this.totalItems = this.items.reduce((sum, item) => sum + item.quantity, 0);
+    this.totalItems = this.items.reduce(
+      (sum: number, item: any) => sum + item.quantity,
+      0
+    );
     this.totalAmount = this.items.reduce(
-      (sum, item) => sum + item.price * item.quantity,
+      (sum: number, item: any) => sum + item.price * item.quantity,
       0
     );
   }
 
   // Helper to find item in cart
   findItem(productId: string): any | null {
-    return this.items.find((item) => item.productId === productId) || null;
+    return this.items.find((item: any) => item.productId === productId) || null;
   }
 }

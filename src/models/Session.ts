@@ -6,7 +6,10 @@ import {
   Index,
   Default,
   AllowNull,
+  ForeignKey,
+  BelongsTo,
 } from "sequelize-typescript";
+import User from "../models/UserModel"; // Make sure to import User model
 
 @Table({
   tableName: "sessions",
@@ -41,8 +44,9 @@ export class Session extends Model {
 
   @Index("sessions_user_id_index")
   @AllowNull(true)
-  @Column(DataType.STRING)
-  userId?: string;
+  @ForeignKey(() => User) // Add foreign key decorator
+  @Column(DataType.INTEGER) // Changed from STRING to INTEGER
+  userId?: number; // Changed from string to number
 
   @Index("sessions_guest_id_index")
   @Column({
@@ -74,6 +78,10 @@ export class Session extends Model {
   @AllowNull(true)
   @Column(DataType.STRING)
   ipAddress?: string;
+
+  // Define association
+  @BelongsTo(() => User)
+  user?: User;
 
   // Helper method to check if session is expired
   isExpired(): boolean {
