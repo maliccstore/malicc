@@ -7,6 +7,7 @@ import { AuthPayload } from "../api/graphql/schemas/user.schema";
 import { Request } from "express";
 import { UserRole } from "@/enums/UserRole";
 import { ForbiddenError } from "../errors";
+import { log } from "node:console";
 
 export function generateJWT(user: User) {
   return jwt.sign(
@@ -33,11 +34,8 @@ export function getTokenFromRequest(req: Request): string | null {
 export function verifyToken(token: string): AuthPayload {
   if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not configured");
   const payload = jwt.verify(token, process.env.JWT_SECRET!);
-  return {
-    id: (payload as AuthPayload).user.id,
-    role: (payload as any).role,
-    // other user properties
-  };
+  log(payload);
+  return payload as AuthPayload;
 }
 
 export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
