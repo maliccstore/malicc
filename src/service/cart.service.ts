@@ -1,12 +1,13 @@
 import { Service } from "typedi";
 import { Cart } from "../models/Cart";
-import { Product } from "../models/Product";
+import { Product } from "../models/ProductModel";
 import {
   CartData,
   CartItem,
   AddToCartInput,
   UpdateCartItemInput,
 } from "../interface/cart";
+import { Inventory } from "../models/Inventory";
 
 @Service()
 export class CartService {
@@ -65,13 +66,20 @@ export class CartService {
     return cart;
   }
 
-  // PRIVATE method to fetch product details
-  private async getProductDetails(productId: string): Promise<{
+  // Add item to cart - CORRECTED VERSION
+  private async getProductDetails(
+    productId: string,
+    quantity: number = 1
+  ): Promise<{
     price: number;
     name: string;
     image?: string;
+    inStock: boolean;
+    availableQuantity: number;
   }> {
-    const product = await Product.findByPk(productId);
+    const product = await Product.findByPk(productId, {
+      include: [Inventory],
+    });
 
     if (!product) {
       throw new Error(`Product with ID ${productId} not found`);
@@ -81,10 +89,15 @@ export class CartService {
       throw new Error(`Product ${productId} is not available`);
     }
 
-    // Check inventory if needed
-    // if (product.inventory && product.inventory < 1) {
-    //   throw new Error(`Product ${productId} is out of stock`);
-    // }
+    // Check inventory
+    const inStock = await product.checkStock(quantity);
+    const availableQuantity = await product.getAvailableQuantity();
+
+    if (!inStock) {
+      throw new Error(
+        `Product ${product.name} is out of stock. Available: ${availableQuantity}`
+      );
+    }
 
     return {
       price: product.price,
@@ -93,10 +106,12 @@ export class CartService {
         product.imageUrl && product.imageUrl.length > 0
           ? product.imageUrl[0]
           : undefined,
+      inStock,
+      availableQuantity,
     };
   }
 
-  // Add item to cart - CORRECTED VERSION
+  // Add item to cart with inventory reservation
   async addToCart(
     sessionId: string,
     input: AddToCartInput,
@@ -107,11 +122,28 @@ export class CartService {
       throw new Error("Quantity must be greater than 0");
     }
 
-    // Fetch product details from database
-    const productDetails = await this.getProductDetails(input.productId);
+    // Fetch product details with inventory check
+    const productDetails = await this.getProductDetails(
+      input.productId,
+      input.quantity
+    );
 
-    // Get or create cart - use getCartModel which handles creation
+    // Get or create cart
     const cartModel = await this.getCartModel(sessionId, userId);
+
+    // Reserve items in inventory
+    const inventory = await Inventory.findOne({
+      where: { productId: input.productId },
+    });
+    if (inventory && !(await inventory.reserve(input.quantity))) {
+      throw new Error(
+        `Failed to reserve ${input.quantity} items for ${productDetails.name}`
+      );
+    }
+
+    console.log(
+      `✅ Reserved ${input.quantity} items for ${productDetails.name}`
+    );
 
     // Ensure items is always an array
     const currentItems = Array.isArray(cartModel.items)
@@ -126,8 +158,6 @@ export class CartService {
       // Update existing item
       currentItems[existingItemIndex].quantity += input.quantity;
       currentItems[existingItemIndex].updatedAt = new Date();
-
-      // Update price to current price (in case it changed)
       currentItems[existingItemIndex].price = productDetails.price;
 
       console.log(
@@ -138,9 +168,9 @@ export class CartService {
       const newItem: CartItem = {
         productId: input.productId,
         quantity: input.quantity,
-        price: productDetails.price, // From database
-        name: productDetails.name, // From database
-        image: productDetails.image, // From database
+        price: productDetails.price,
+        name: productDetails.name,
+        image: productDetails.image,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
@@ -160,30 +190,18 @@ export class CartService {
       return total + item.price * item.quantity;
     }, 0);
 
-    console.log("💾 Saving cart update:", {
-      cartId: cartModel.id,
-      productId: input.productId,
-      productName: productDetails.name,
-      price: productDetails.price,
-      quantity: input.quantity,
-      totalItems,
-      totalAmount,
-    });
-
     // Update the cart model
     cartModel.items = currentItems;
     cartModel.totalItems = totalItems;
     cartModel.totalAmount = totalAmount;
     cartModel.lastUpdated = new Date();
 
-    // Save using Sequelize
     await cartModel.save();
 
-    // Return as CartData
     return this.mapToCartData(cartModel);
   }
 
-  // Update cart item quantity - CORRECTED VERSION
+  // Update cart item quantity with inventory adjustment
   async updateCartItem(
     sessionId: string,
     input: UpdateCartItemInput
@@ -194,46 +212,73 @@ export class CartService {
     }
 
     const cartModel = await this.getCartModel(sessionId);
-
-    // Create a copy of items to avoid mutation issues
-    const updatedItems = Array.isArray(cartModel.items)
+    const currentItems = Array.isArray(cartModel.items)
       ? [...cartModel.items]
       : [];
 
-    const itemIndex = updatedItems.findIndex(
+    const itemIndex = currentItems.findIndex(
       (item) => item.productId === input.productId
     );
 
     if (itemIndex >= 0) {
+      const currentItem = currentItems[itemIndex];
+      const quantityDifference = input.quantity - currentItem.quantity;
+
+      // Handle inventory reservation/release
+      const inventory = await Inventory.findOne({
+        where: { productId: input.productId },
+      });
+
+      if (inventory) {
+        if (quantityDifference > 0) {
+          // Increasing quantity - reserve more items
+          if (!(await inventory.reserve(quantityDifference))) {
+            const available = inventory.availableQuantity;
+            throw new Error(
+              `Cannot add ${quantityDifference} more items. Only ${available} available.`
+            );
+          }
+          console.log(
+            `✅ Reserved ${quantityDifference} more items for ${currentItem.name}`
+          );
+        } else if (quantityDifference < 0) {
+          // Decreasing quantity - release items
+          await inventory.release(Math.abs(quantityDifference));
+          console.log(
+            `🔄 Released ${Math.abs(quantityDifference)} items for ${
+              currentItem.name
+            }`
+          );
+        }
+      }
+
       if (input.quantity === 0) {
         // Remove item if quantity is 0
-        const removedItem = updatedItems[itemIndex];
-        updatedItems.splice(itemIndex, 1);
+        const removedItem = currentItems[itemIndex];
+        currentItems.splice(itemIndex, 1);
         console.log(`🗑️ Removed item: ${removedItem.name}`);
       } else {
         // Update quantity and refresh product details
         const productDetails = await this.getProductDetails(input.productId);
-
-        updatedItems[itemIndex].quantity = input.quantity;
-        updatedItems[itemIndex].price = productDetails.price; // Update to current price
-        updatedItems[itemIndex].updatedAt = new Date();
-
+        currentItems[itemIndex].quantity = input.quantity;
+        currentItems[itemIndex].price = productDetails.price;
+        currentItems[itemIndex].updatedAt = new Date();
         console.log(
           `✏️ Updated item: ${productDetails.name}, new quantity: ${input.quantity}`
         );
       }
 
       // Recalculate totals
-      const totalItems = updatedItems.reduce(
+      const totalItems = currentItems.reduce(
         (total, item) => total + item.quantity,
         0
       );
-      const totalAmount = updatedItems.reduce((total, item) => {
+      const totalAmount = currentItems.reduce((total, item) => {
         return total + item.price * item.quantity;
       }, 0);
 
       // Update the model
-      cartModel.items = updatedItems;
+      cartModel.items = currentItems;
       cartModel.totalItems = totalItems;
       cartModel.totalAmount = totalAmount;
       cartModel.lastUpdated = new Date();
@@ -246,53 +291,77 @@ export class CartService {
     return this.mapToCartData(cartModel);
   }
 
-  // Remove item from cart - CORRECTED VERSION
+  // Remove item from cart with inventory release
   async removeFromCart(
     sessionId: string,
     productId: string
   ): Promise<CartData> {
     const cartModel = await this.getCartModel(sessionId);
-
-    // Create a filtered copy of items
-    const filteredItems = Array.isArray(cartModel.items)
-      ? cartModel.items.filter((item) => item.productId !== productId)
+    const currentItems = Array.isArray(cartModel.items)
+      ? [...cartModel.items]
       : [];
 
-    // Check if item was actually removed
-    const removedItem = cartModel.items.find(
+    const itemIndex = currentItems.findIndex(
       (item) => item.productId === productId
     );
-    if (removedItem) {
+
+    if (itemIndex >= 0) {
+      const removedItem = currentItems[itemIndex];
+
+      // Release reserved items from inventory
+      const inventory = await Inventory.findOne({ where: { productId } });
+      if (inventory) {
+        await inventory.release(removedItem.quantity);
+        console.log(
+          `🔄 Released ${removedItem.quantity} reserved items for ${removedItem.name}`
+        );
+      }
+
+      // Remove from cart
+      currentItems.splice(itemIndex, 1);
       console.log(`🗑️ Removed item from cart: ${removedItem.name}`);
+
+      // Recalculate totals
+      const totalItems = currentItems.reduce(
+        (total, item) => total + item.quantity,
+        0
+      );
+      const totalAmount = currentItems.reduce((total, item) => {
+        return total + item.price * item.quantity;
+      }, 0);
+
+      // Update the model
+      cartModel.items = currentItems;
+      cartModel.totalItems = totalItems;
+      cartModel.totalAmount = totalAmount;
+      cartModel.lastUpdated = new Date();
+
+      await cartModel.save();
     }
-
-    // Recalculate totals
-    const totalItems = filteredItems.reduce(
-      (total, item) => total + item.quantity,
-      0
-    );
-    const totalAmount = filteredItems.reduce((total, item) => {
-      return total + item.price * item.quantity;
-    }, 0);
-
-    // Update the model
-    cartModel.items = filteredItems;
-    cartModel.totalItems = totalItems;
-    cartModel.totalAmount = totalAmount;
-    cartModel.lastUpdated = new Date();
-
-    await cartModel.save();
 
     return this.mapToCartData(cartModel);
   }
 
-  // Clear entire cart - CORRECTED VERSION
+  // Clear entire cart with inventory release
   async clearCart(sessionId: string): Promise<CartData> {
     const cartModel = await this.getCartModel(sessionId);
 
     console.log(
       `🧹 Clearing entire cart (ID: ${cartModel.id}) with ${cartModel.items.length} items`
     );
+
+    // Release all reserved items from inventory
+    for (const item of cartModel.items) {
+      const inventory = await Inventory.findOne({
+        where: { productId: item.productId },
+      });
+      if (inventory) {
+        await inventory.release(item.quantity);
+        console.log(
+          `🔄 Released ${item.quantity} reserved items for ${item.name}`
+        );
+      }
+    }
 
     cartModel.items = [];
     cartModel.totalAmount = 0;
