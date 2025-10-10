@@ -46,7 +46,7 @@ export class Session extends Model {
   @AllowNull(true)
   @ForeignKey(() => User) // Add foreign key decorator
   @Column(DataType.INTEGER) // Changed from STRING to INTEGER
-  userId?: number; // Changed from string to number
+  userId?: string; // Changed from string to number
 
   @Index("sessions_guest_id_index")
   @Column({

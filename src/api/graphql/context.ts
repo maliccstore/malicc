@@ -1,15 +1,12 @@
-import User from "../../models/UserModel";
-import { UserRole } from "@/enums/UserRole";
 import { Request, Response } from "express";
 import Container from "typedi";
 import { SessionService } from "../../service/session.service";
 import { CartService } from "../../service/cart.service";
 import { SessionData } from "../../interface/session";
-import { CartData } from "../../interface/cart";
 
 // Define a proper user type if you have one, otherwise use this:
 interface ContextUser {
-  id: number;
+  id: string;
   role: string;
   phoneNumber: string;
   isPhoneVerified: boolean;
