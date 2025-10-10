@@ -46,6 +46,12 @@ export class UpdateProductInput {
 
   @Field({ nullable: true })
   sku?: string;
+
+  @Field({ nullable: true })
+  inStock?: boolean;
+
+  @Field(() => Float, { nullable: true })
+  availableQuantity?: number;
 }
 
 @InputType()

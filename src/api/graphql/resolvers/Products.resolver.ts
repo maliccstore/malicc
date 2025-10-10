@@ -1,7 +1,15 @@
-import { Resolver, Query, Mutation, Arg, Authorized } from "type-graphql";
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Arg,
+  Authorized,
+  FieldResolver,
+  Root,
+} from "type-graphql";
 import { ProductService } from "../../../service/product.service";
 import {
-  Product,
+  ProductSchema,
   ProductResponse,
   ProductsResponse,
 } from "../schemas/product.schema";
@@ -12,20 +20,89 @@ import {
 } from "../inputs/ProductInput";
 import { Service } from "typedi";
 import { UserRole } from "../../../enums/UserRole";
-
+import { Inventory } from "../../../models/Inventory";
+import { InventorySchema } from "../schemas/inventory.schema";
+import { Product as ProductModel } from "../../../models/ProductModel";
 @Service()
-@Resolver(() => Product)
+@Resolver(() => ProductSchema)
 export class ProductResolver {
   constructor(private readonly productService: ProductService) {}
+
+  @FieldResolver(() => InventorySchema, { nullable: true })
+  async inventory(@Root() productSchema: ProductSchema) {
+    const productModel = await ProductModel.findByPk(productSchema.id, {
+      include: [Inventory],
+    });
+
+    if (!productModel || !productModel.inventory) {
+      return null;
+    }
+
+    const inventory = productModel.inventory;
+    return {
+      id: inventory.id,
+      productId: inventory.productId,
+      quantity: inventory.quantity,
+      reservedQuantity: inventory.reservedQuantity,
+      availableQuantity: inventory.availableQuantity,
+      isInStock: inventory.isInStock(),
+      lowStockThreshold: inventory.lowStockThreshold,
+      trackQuantity: inventory.trackQuantity,
+      createdAt: inventory.createdAt,
+      updatedAt: inventory.updatedAt,
+    };
+  }
+
+  @FieldResolver(() => Boolean)
+  async inStock(@Root() productSchema: ProductSchema): Promise<boolean> {
+    const productModel = await ProductModel.findByPk(productSchema.id, {
+      include: [Inventory],
+    });
+    if (!productModel) return false;
+
+    return await productModel.checkStock(1);
+  }
+
+  @FieldResolver(() => Number)
+  async availableQuantity(
+    @Root() productSchema: ProductSchema
+  ): Promise<number> {
+    const productModel = await ProductModel.findByPk(productSchema.id, {
+      include: [Inventory],
+    });
+
+    if (!productModel) return 0;
+
+    return await productModel.getAvailableQuantity();
+  }
 
   @Query(() => ProductResponse)
   async product(@Arg("id") id: string): Promise<ProductResponse> {
     try {
       const product = await this.productService.getProductById(id);
+      if (!product) {
+        return {
+          success: false,
+          message: "Product not found",
+        };
+      }
+      const productSchema: ProductSchema = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        sku: product.sku,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+        // inventory, inStock, availableQuantity will be populated by field resolvers
+      };
       return {
         success: true,
         message: "Product fetched successfully",
-        product: product || undefined,
+        product: productSchema,
       };
     } catch (error) {
       return {
@@ -43,10 +120,22 @@ export class ProductResolver {
       const { products, totalCount, message, success } =
         await this.productService.getAllProducts(filters);
 
+      const productSchemas: ProductSchema[] = products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        sku: product.sku,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      }));
       return {
         success: success !== undefined ? success : true,
         message: message || "Products fetched successfully",
-        products,
+        products: productSchemas,
         totalCount,
       };
     } catch (error) {
@@ -66,10 +155,23 @@ export class ProductResolver {
   ): Promise<ProductResponse> {
     try {
       const product = await this.productService.createProduct(input);
+
+      const productSchema: ProductSchema = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        sku: product.sku,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
       return {
         success: true,
         message: "Product created successfully",
-        product,
+        product: productSchema,
       };
     } catch (error) {
       return {
@@ -188,6 +290,111 @@ export class ProductResolver {
         message: `Failed to search products. Error: ${error}`,
         products: [],
         totalCount: 0,
+      };
+    }
+  }
+
+  @Authorized([UserRole.ADMIN, UserRole.SUPERADMIN])
+  @Mutation(() => ProductResponse)
+  async updateInventory(
+    @Arg("productId") productId: string,
+    @Arg("quantity") quantity: number
+  ): Promise<ProductResponse> {
+    try {
+      let inventory = await Inventory.findOne({ where: { productId } });
+
+      if (!inventory) {
+        // Create inventory record if it doesn't exist
+        inventory = await Inventory.create({
+          productId,
+          quantity,
+          reservedQuantity: 0,
+        });
+      } else {
+        inventory.quantity = quantity;
+        await inventory.save();
+      }
+
+      const product = await this.productService.getProductById(productId);
+
+      if (!product) {
+        return {
+          success: false,
+          message: "Product not found",
+        };
+      }
+
+      const productSchema: ProductSchema = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        sku: product.sku,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
+
+      return {
+        success: true,
+        message: "Inventory updated successfully",
+        product: productSchema,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to update inventory. Error: ${error}`,
+      };
+    }
+  }
+
+  @Authorized([UserRole.ADMIN, UserRole.SUPERADMIN])
+  @Mutation(() => ProductResponse)
+  async restockProduct(
+    @Arg("productId") productId: string,
+    @Arg("quantity") quantity: number
+  ): Promise<ProductResponse> {
+    try {
+      const inventory = await Inventory.findOne({ where: { productId } });
+
+      if (!inventory) {
+        throw new Error("Inventory record not found");
+      }
+
+      await inventory.restock(quantity);
+
+      const product = await this.productService.getProductById(productId);
+      if (!product) {
+        return {
+          success: false,
+          message: "Product not found",
+        };
+      }
+
+      const productSchema: ProductSchema = {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        imageUrl: product.imageUrl,
+        isActive: product.isActive,
+        sku: product.sku,
+        createdAt: product.createdAt,
+        updatedAt: product.updatedAt,
+      };
+
+      return {
+        success: true,
+        message: `Restocked ${quantity} items successfully`,
+        product: productSchema,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to restock product. Error: ${error}`,
       };
     }
   }

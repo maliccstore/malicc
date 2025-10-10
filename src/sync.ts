@@ -1,6 +1,6 @@
 import sequelize from "./config/database";
 import User from "./models/UserModel";
-import { Product } from "./models/Product";
+import { Product } from "./models/ProductModel";
 const syncDatabase = async () => {
   try {
     await sequelize.authenticate();

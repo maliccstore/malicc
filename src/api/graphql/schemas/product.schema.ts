@@ -1,7 +1,9 @@
+// src/api/graphql/schemas/product.schema.ts
 import { ObjectType, Field, ID, Float, InputType } from "type-graphql";
+import { InventorySchema } from "./inventory.schema";
 
 @ObjectType()
-export class Product {
+export class ProductSchema {
   @Field(() => ID)
   id!: string;
 
@@ -34,6 +36,16 @@ export class Product {
 
   @Field({ nullable: true })
   search_vector?: string;
+
+  // Use the InventorySchema instead of the model
+  // @Field(() => InventorySchema, { nullable: true })
+  // inventory?: InventorySchema;
+
+  // @Field(() => Boolean)
+  // inStock!: boolean;
+
+  // @Field(() => Float)
+  // availableQuantity!: number;
 }
 
 @ObjectType()
@@ -44,8 +56,8 @@ export class ProductResponse {
   @Field({ nullable: true })
   message?: string;
 
-  @Field(() => Product, { nullable: true })
-  product?: Product;
+  @Field(() => ProductSchema, { nullable: true })
+  product?: ProductSchema;
 }
 
 @ObjectType()
@@ -56,8 +68,8 @@ export class ProductsResponse {
   @Field({ nullable: true })
   message?: string;
 
-  @Field(() => [Product])
-  products!: Product[];
+  @Field(() => [ProductSchema])
+  products!: ProductSchema[];
 
   @Field(() => Float)
   totalCount!: number;

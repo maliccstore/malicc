@@ -1,6 +1,7 @@
 import { Service } from "typedi";
-import { Product } from "../models/Product";
+import { Product } from "../models/ProductModel";
 import { Op, literal } from "sequelize";
+import { Inventory } from "../models/Inventory";
 
 @Service()
 export class ProductService {
@@ -12,8 +13,27 @@ export class ProductService {
     imageUrl: string[];
     isActive: boolean;
     sku?: string;
+    initialQuantity?: number;
   }): Promise<Product> {
-    return await Product.create(productData);
+    const { initialQuantity = 0, ...productFields } = productData;
+    return await Product.sequelize!.transaction(async (transaction) => {
+      // Create the product
+      const product = await Product.create(productFields, { transaction });
+
+      // Create inventory record
+      await Inventory.create(
+        {
+          productId: product.id,
+          quantity: initialQuantity,
+          reservedQuantity: 0,
+          lowStockThreshold: 10,
+          trackQuantity: true,
+        },
+        { transaction }
+      );
+
+      return product;
+    });
   }
 
   async getProductById(id: string): Promise<Product | null> {
