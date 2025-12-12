@@ -65,11 +65,16 @@ export class Inventory extends Model {
 
   // Reserve items for cart
   async reserve(quantity: number): Promise<boolean> {
-    if (!this.isInStock(quantity)) return false;
+    return await this.sequelize!.transaction(async (t) => {
+      await this.reload({ lock: t.LOCK.UPDATE, transaction: t });
 
-    this.reservedQuantity += quantity;
-    await this.save();
-    return true;
+      if (!this.isInStock(quantity)) return false;
+
+      this.reservedQuantity += quantity;
+      await this.save({ transaction: t });
+
+      return true;
+    });
   }
 
   // Release reserved items

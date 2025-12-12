@@ -7,22 +7,15 @@ import {
   Default,
   AllowNull,
   ForeignKey,
+  HasMany,
 } from "sequelize-typescript";
+
 import { Session } from "./Session";
+import { CartItem } from "./CartItem";
 
 @Table({
   tableName: "carts",
   timestamps: true,
-  indexes: [
-    {
-      name: "carts_session_id_index",
-      fields: ["sessionId"],
-    },
-    {
-      name: "carts_user_id_index",
-      fields: ["userId"],
-    },
-  ],
 })
 export class Cart extends Model {
   @Column({
@@ -32,56 +25,46 @@ export class Cart extends Model {
   })
   id!: string;
 
-  @Index("carts_session_id_index")
   @ForeignKey(() => Session)
   @AllowNull(false)
+  @Index
   @Column(DataType.STRING)
   sessionId!: string;
 
-  @Index("carts_user_id_index")
   @AllowNull(true)
+  @Index
   @Column(DataType.INTEGER)
   userId?: number;
 
-  @Column({
-    type: DataType.JSONB,
-    allowNull: false,
-    defaultValue: [],
-  })
-  items!: any[];
+  // When items move out, we delete this
+  @HasMany(() => CartItem)
+  items!: CartItem[];
 
   @Default(0)
-  @Column({
-    type: DataType.DECIMAL(10, 2),
-    allowNull: false,
-  })
+  @Column(DataType.DECIMAL(10, 2))
   totalAmount!: number;
 
   @Default(0)
-  @Column({
-    type: DataType.INTEGER,
-    allowNull: false,
-  })
+  @Column(DataType.INTEGER)
   totalItems!: number;
 
   @Default(DataType.NOW)
   @Column(DataType.DATE)
   lastUpdated!: Date;
 
-  // Helper method to calculate totals
-  calculateTotals(): void {
-    this.totalItems = this.items.reduce(
-      (sum: number, item: any) => sum + item.quantity,
+  // Helper: recalc totals
+  async recalcTotals() {
+    const items = await this.$get("items");
+    const totalItems = items!.reduce((sum, i) => sum + i.quantity, 0);
+    const totalAmount = items!.reduce(
+      (sum, i) => sum + Number(i.totalPrice),
       0
     );
-    this.totalAmount = this.items.reduce(
-      (sum: number, item: any) => sum + item.price * item.quantity,
-      0
-    );
-  }
 
-  // Helper to find item in cart
-  findItem(productId: string): any | null {
-    return this.items.find((item: any) => item.productId === productId) || null;
+    this.totalItems = totalItems;
+    this.totalAmount = totalAmount;
+    this.lastUpdated = new Date();
+
+    await this.save();
   }
 }

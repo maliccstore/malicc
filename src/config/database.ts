@@ -5,6 +5,7 @@ import User from "../models/UserModel";
 import { Session } from "../models/Session";
 import { Cart } from "../models/Cart";
 import { Inventory } from "../models/Inventory";
+import { CartItem } from "../models/CartItem";
 
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,
@@ -14,7 +15,7 @@ const sequelize = new Sequelize({
   port: appConfig.DB_PORT,
   dialect: "postgres",
   logging: console.log,
-  models: [Product, User, Session, Cart, Inventory], // ← Add models here
+  models: [Product, User, Session, Cart, Inventory, CartItem], // ← Add models here
 });
 
 export default sequelize;
