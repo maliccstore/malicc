@@ -21,7 +21,7 @@ import { InventoryResolver } from "./api/graphql/resolvers/Inventory.resolver";
 async function bootstrap() {
   dotenv.config();
   const app: Express = express();
-  const port = process.env.PORT || 4000;
+  const port = process.env.PORT;
 
   // 1. Build TypeGraphQL Schema
   const schema = await buildSchema({
@@ -61,6 +61,7 @@ async function bootstrap() {
     "https://studio.apollographql.com",
     "http://localhost:8080",
     "http://localhost:8081",
+    "http://localhost:8000",
   ];
 
   const corsOptions = {
