@@ -12,14 +12,8 @@ import { UserType } from "../types/user";
 @Service()
 class UserService {
   async createUser(userData: NewUserType) {
-    try {
-      const user = await User.create(userData as UserType);
-
-      return user;
-    } catch (error) {
-      console.error("Error creating user:", error);
-      throw error; // Throw original error to let GraphQL handle it
-    }
+    const user = await User.create(userData as UserType);
+    return user;
   }
 
   async findUser(id: number) {

@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { formatGraphQLError } from "./utils/errorHandler";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
@@ -43,7 +44,7 @@ async function bootstrap() {
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
-    includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
+    formatError: formatGraphQLError,
   });
 
   await apolloServer.start();

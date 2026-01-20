@@ -34,7 +34,10 @@ class User extends Model<UserType> implements UserType {
   public email?: string;
 
   @AllowNull(false)
-  @Unique
+  @Unique({
+    name: "phoneNumber",
+    msg: "Phone number already exists.",
+  })
   @Column({
     type: DataType.STRING,
     validate: {
