@@ -6,10 +6,12 @@ import {
   AllowNull,
   Index,
   Default,
+  HasMany,
 } from "sequelize-typescript";
 
 import { OrderStatus } from "../enums/OrderStatus";
 import { Currency } from "../enums/Currency";
+import { OrderItem } from "./OrderItem";
 
 @Table({
   tableName: "orders",
@@ -52,4 +54,7 @@ export class Order extends Model {
   @Default(Currency.INR)
   @Column(DataType.ENUM(...Object.values(Currency)))
   currency!: Currency;
+
+  @HasMany(() => OrderItem)
+  items!: OrderItem[];
 }
