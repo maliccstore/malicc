@@ -17,7 +17,8 @@ class UserService {
 
       return user;
     } catch (error) {
-      throw new Error(`Username or email already exists ${error}`);
+      console.error("Error creating user:", error);
+      throw error; // Throw original error to let GraphQL handle it
     }
   }
 
