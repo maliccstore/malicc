@@ -46,7 +46,7 @@ export class Order extends Model {
   tax!: number;
 
   @Column(DataType.DECIMAL(10, 2))
-  shipping!: number;
+  shippingAddress!: number;
 
   @Column(DataType.DECIMAL(10, 2))
   totalAmount!: number;
