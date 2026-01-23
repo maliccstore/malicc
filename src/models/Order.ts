@@ -12,8 +12,11 @@ import {
 import { OrderStatus } from "../enums/OrderStatus";
 import { Currency } from "../enums/Currency";
 import { OrderItem } from "./OrderItem";
+<<<<<<< HEAD
 import Address from "./Address";
 import { ForeignKey, BelongsTo } from "sequelize-typescript";
+=======
+>>>>>>> dev
 
 @Table({
   tableName: "orders",
@@ -59,7 +62,11 @@ export class Order extends Model {
   shippingAddress!: any;
 
   @Column(DataType.DECIMAL(10, 2))
+<<<<<<< HEAD
   shippingFee!: number;
+=======
+  shippingAddress!: number;
+>>>>>>> dev
 
   @Column(DataType.DECIMAL(10, 2))
   totalAmount!: number;

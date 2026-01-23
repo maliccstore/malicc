@@ -47,7 +47,11 @@ export class Product extends Model {
   price!: number;
 
   @Column({
+<<<<<<< HEAD
     type: DataType.ARRAY(DataType.TEXT),
+=======
+    type: DataType.ARRAY(DataType.STRING),
+>>>>>>> dev
     allowNull: false,
     defaultValue: [],
   })
