@@ -14,6 +14,8 @@ import {
 import { UserType } from "../types/user";
 import { UserRole } from "../enums/UserRole";
 
+import { HasMany } from "sequelize-typescript";
+import Address from "./Address";
 @Table({
   tableName: "users",
   timestamps: true,
@@ -69,6 +71,9 @@ class User extends Model<UserType> implements UserType {
   @UpdatedAt
   @Column(DataType.DATE)
   public readonly updatedAt!: Date;
+
+  @HasMany(() => Address)
+  addresses!: Address[];
 }
 
 export default User;

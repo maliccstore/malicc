@@ -17,23 +17,23 @@ export class UserResolver {
   constructor(
     private readonly userService: UserService,
     private readonly verificationService: VerificationService
-  ) {}
+  ) { }
 
   // Deprecate it in production
   @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Query(() => [UserProfile])
   async users(@Ctx() { user }: { user: UserToken }) {
     console.log(user);
-    if (user.email == "shahzer@malicc.store") {
-      try {
-        return await this.userService.findAllUsers();
-      } catch (error) {
-        console.error("Database error:", error);
-        throw new Error("Failed to fetch users");
-      }
-    } else {
-      throw new Error("Not authenticated");
+    // if (user.email === "shahzer@malicc.store" || user.email === "pranay@malicc.store") {
+    try {
+      return await this.userService.findAllUsers();
+    } catch (error) {
+      console.error("Database error:", error);
+      throw new Error("Failed to fetch users");
     }
+    // } else {
+    //   throw new Error("Not authenticated");
+    // }
   }
 
   @Authorized()

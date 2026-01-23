@@ -19,6 +19,10 @@ import { createContext } from "./api/graphql/context";
 import cookieParser from "cookie-parser";
 import { sessionMiddleware } from "./middlewares/session";
 import { InventoryResolver } from "./api/graphql/resolvers/Inventory.resolver";
+import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
+import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
+import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
+
 async function bootstrap() {
   dotenv.config();
   const app: Express = express();
@@ -34,6 +38,9 @@ async function bootstrap() {
       SessionResolver,
       CartResolver,
       InventoryResolver,
+      OrderResolver,
+      AddressResolver,
+      CategoryResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
