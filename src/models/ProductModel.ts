@@ -9,9 +9,12 @@ import {
   BeforeSave,
   BeforeUpdate,
   HasOne,
+  BelongsTo,
+  ForeignKey,
 } from "sequelize-typescript";
 import { Inventory } from "./Inventory";
 import { QueryTypes } from "sequelize";
+import { Category } from "./Category";
 
 @Table({
   tableName: "products",
@@ -44,12 +47,6 @@ export class Product extends Model {
   price!: number;
 
   @Column({
-    type: DataType.STRING(100),
-    allowNull: false,
-  })
-  category!: string;
-
-  @Column({
     type: DataType.ARRAY(DataType.STRING),
     allowNull: false,
     defaultValue: [],
@@ -68,6 +65,13 @@ export class Product extends Model {
     type: DataType.STRING(100),
   })
   sku?: string;
+
+  @ForeignKey(() => Category)
+  @Column(DataType.UUID)
+  categoryId!: string;
+
+  @BelongsTo(() => Category)
+  category?: Category;
 
   // Add full-text search vector column
   @Column({
@@ -91,7 +95,7 @@ export class Product extends Model {
           {
             bind: [searchText],
             type: QueryTypes.SELECT,
-          }
+          },
         );
 
         instance.search_vector = (result as any).vector;
