@@ -26,7 +26,22 @@ import { Product as ProductModel } from "../../../models/ProductModel";
 @Service()
 @Resolver(() => ProductSchema)
 export class ProductResolver {
-  constructor(private readonly productService: ProductService) {}
+  constructor(private readonly productService: ProductService) { }
+
+  private mapToSchema(product: ProductModel): ProductSchema {
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      category: product.categoryId || "",
+      imageUrl: product.imageUrl,
+      isActive: product.isActive,
+      sku: product.sku,
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    };
+  }
 
   @FieldResolver(() => InventorySchema, { nullable: true })
   async inventory(@Root() productSchema: ProductSchema) {
@@ -86,19 +101,7 @@ export class ProductResolver {
           message: "Product not found",
         };
       }
-      const productSchema: ProductSchema = {
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.imageUrl,
-        isActive: product.isActive,
-        sku: product.sku,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-        // inventory, inStock, availableQuantity will be populated by field resolvers
-      };
+      const productSchema = this.mapToSchema(product);
       return {
         success: true,
         message: "Product fetched successfully",
@@ -120,18 +123,9 @@ export class ProductResolver {
       const { products, totalCount, message, success } =
         await this.productService.getAllProducts(filters);
 
-      const productSchemas: ProductSchema[] = products.map((product) => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.imageUrl,
-        isActive: product.isActive,
-        sku: product.sku,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      }));
+      const productSchemas: ProductSchema[] = products.map((product) =>
+        this.mapToSchema(product)
+      );
       return {
         success: success !== undefined ? success : true,
         message: message || "Products fetched successfully",
@@ -156,18 +150,7 @@ export class ProductResolver {
     try {
       const product = await this.productService.createProduct(input);
 
-      const productSchema: ProductSchema = {
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.imageUrl,
-        isActive: product.isActive,
-        sku: product.sku,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      };
+      const productSchema = this.mapToSchema(product);
       return {
         success: true,
         message: "Product created successfully",
@@ -192,7 +175,7 @@ export class ProductResolver {
       return {
         success: true,
         message: "Product updated successfully",
-        product: product || undefined,
+        product: product ? this.mapToSchema(product) : undefined,
       };
     } catch (error) {
       return {
@@ -228,10 +211,9 @@ export class ProductResolver {
       const product = await this.productService.toggleProductStatus(id);
       return {
         success: true,
-        message: `Product ${
-          product?.isActive ? "activated" : "deactivated"
-        } successfully`,
-        product: product || undefined,
+        message: `Product ${product?.isActive ? "activated" : "deactivated"
+          } successfully`,
+        product: product ? this.mapToSchema(product) : undefined,
       };
     } catch (error) {
       return {
@@ -256,7 +238,7 @@ export class ProductResolver {
         success: true,
         message:
           message || `Products in category "${category}" fetched successfully`,
-        products,
+        products: products.map((p) => this.mapToSchema(p)),
         totalCount: products.length,
       };
     } catch (error) {
@@ -281,7 +263,7 @@ export class ProductResolver {
       return {
         success: true,
         message: message || "Products searched successfully",
-        products,
+        products: products.map((p) => this.mapToSchema(p)),
         totalCount,
       };
     } catch (error) {
@@ -324,18 +306,7 @@ export class ProductResolver {
         };
       }
 
-      const productSchema: ProductSchema = {
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.imageUrl,
-        isActive: product.isActive,
-        sku: product.sku,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      };
+      const productSchema = this.mapToSchema(product);
 
       return {
         success: true,
@@ -373,18 +344,7 @@ export class ProductResolver {
         };
       }
 
-      const productSchema: ProductSchema = {
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        imageUrl: product.imageUrl,
-        isActive: product.isActive,
-        sku: product.sku,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      };
+      const productSchema = this.mapToSchema(product);
 
       return {
         success: true,
