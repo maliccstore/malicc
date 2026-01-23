@@ -6,10 +6,14 @@ import {
   AllowNull,
   Index,
   Default,
+  HasMany,
 } from "sequelize-typescript";
 
 import { OrderStatus } from "../enums/OrderStatus";
 import { Currency } from "../enums/Currency";
+import { OrderItem } from "./OrderItem";
+import Address from "./Address";
+import { ForeignKey, BelongsTo } from "sequelize-typescript";
 
 @Table({
   tableName: "orders",
@@ -28,6 +32,14 @@ export class Order extends Model {
   @Column(DataType.INTEGER)
   userId?: number;
 
+  @ForeignKey(() => Address)
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  addressId?: number;
+
+  @BelongsTo(() => Address)
+  address?: Address;
+
   @AllowNull(true)
   @Index
   @Column(DataType.STRING)
@@ -43,13 +55,27 @@ export class Order extends Model {
   @Column(DataType.DECIMAL(10, 2))
   tax!: number;
 
+  @Column(DataType.JSON)
+  shippingAddress!: any;
+
   @Column(DataType.DECIMAL(10, 2))
-  shipping!: number;
+  shippingFee!: number;
 
   @Column(DataType.DECIMAL(10, 2))
   totalAmount!: number;
 
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  paymentMethod?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  shippingMethod?: string;
+
   @Default(Currency.INR)
   @Column(DataType.ENUM(...Object.values(Currency)))
   currency!: Currency;
+
+  @HasMany(() => OrderItem)
+  items!: OrderItem[];
 }
