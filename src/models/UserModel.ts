@@ -14,6 +14,8 @@ import {
 import { UserType } from "../types/user";
 import { UserRole } from "../enums/UserRole";
 
+import { HasMany } from "sequelize-typescript";
+import Address from "./Address";
 @Table({
   tableName: "users",
   timestamps: true,
@@ -26,19 +28,22 @@ class User extends Model<UserType> implements UserType {
 
   @AllowNull(true)
   @Column(DataType.STRING)
-  public username!: string;
+  public username?: string;
 
   @AllowNull(true)
   @Unique
   @Column(DataType.STRING)
-  public email!: string;
+  public email?: string;
 
   @AllowNull(false)
-  @Unique
+  @Unique({
+    name: "phoneNumber",
+    msg: "Phone number already exists.",
+  })
   @Column({
     type: DataType.STRING,
     validate: {
-      is: /^\+?[1-9]\d{1,14}$/,
+      is: /^\+?[0-9]{10,15}$/,
     },
   })
   public phoneNumber!: string;
@@ -66,6 +71,9 @@ class User extends Model<UserType> implements UserType {
   @UpdatedAt
   @Column(DataType.DATE)
   public readonly updatedAt!: Date;
+
+  @HasMany(() => Address)
+  addresses!: Address[];
 }
 
 export default User;

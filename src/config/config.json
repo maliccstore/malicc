@@ -1,23 +1,23 @@
 {
     "development": {
-      "username": "shahzerbaig",
-      "password": "Shahzer@baig1234",
-      "database": "malicc",
-      "host": "159.89.173.118",
+      "username": "malicc_user",
+      "password": "Malicc@1234",
+      "database": "malicc_dev",
+      "host": "localhost",
       "dialect": "postgres"
     },
     "test": {
-        "username": "shahzerbaig",
-        "password": "Shahzer@baig1234",
+        "username": "malicc_user",
+        "password": "Malicc@1234",
         "database": "malicc",
-        "host": "159.89.173.118",
+        "host": "localhost",
       "dialect": "postgres"
     },
     "production": {
-        "username": "shahzerbaig",
-        "password": "Shahzer@baig1234",
+        "username": "malicc_user",
+        "password": "Malicc@1234",
         "database": "malicc",
-        "host": "159.89.173.118",
+        "host": "localhost",
       "dialect": "postgres"
     }
   }

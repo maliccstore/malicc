@@ -38,8 +38,8 @@ export class ProductSchema {
   search_vector?: string;
 
   // Use the InventorySchema instead of the model
-  // @Field(() => InventorySchema, { nullable: true })
-  // inventory?: InventorySchema;
+  @Field(() => InventorySchema, { nullable: true })
+  inventory?: InventorySchema;
 
   // @Field(() => Boolean)
   // inStock!: boolean;

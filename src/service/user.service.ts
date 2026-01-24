@@ -12,13 +12,8 @@ import { UserType } from "../types/user";
 @Service()
 class UserService {
   async createUser(userData: NewUserType) {
-    try {
-      const user = await User.create(userData as UserType);
-
-      return user;
-    } catch (error) {
-      throw new Error(`Username or email already exists ${error}`);
-    }
+    const user = await User.create(userData as UserType);
+    return user;
   }
 
   async findUser(id: number) {

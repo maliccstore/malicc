@@ -18,8 +18,8 @@ export class UserProfile {
   @Field(() => ID)
   id?: number;
 
-  @Field()
-  username: string;
+  @Field({ nullable: true })
+  username?: string;
 
   @Field()
   phoneNumber: string;
@@ -35,8 +35,8 @@ export class UserProfile {
 
   otpExpiration?: Date | null;
 
-  @Field()
-  email: string;
+  @Field({ nullable: true })
+  email?: string;
 
   @Field(() => Date)
   createdAt?: Date;

@@ -16,9 +16,16 @@ export class ProductService {
     initialQuantity?: number;
   }): Promise<Product> {
     const { initialQuantity = 0, ...productFields } = productData;
+
+    // Map category to categoryId for the DB
+    const dbPayload: any = {
+      ...productFields,
+      categoryId: productData.category
+    };
+
     return await Product.sequelize!.transaction(async (transaction) => {
       // Create the product
-      const product = await Product.create(productFields, { transaction });
+      const product = await Product.create(dbPayload, { transaction });
 
       // Create inventory record
       await Inventory.create(
@@ -82,8 +89,8 @@ export class ProductService {
       searchCondition = {
         [Op.and]: literal(`
           search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-            filters.search
-          )}')
+          filters.search
+        )}')
         `),
       };
     }
@@ -94,15 +101,15 @@ export class ProductService {
       where: finalWhere,
       order: filters?.search
         ? [
-            [
-              literal(
-                `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
-                  filters.search
-                )}'))`
-              ),
-              "DESC",
-            ],
-          ]
+          [
+            literal(
+              `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+                filters.search
+              )}'))`
+            ),
+            "DESC",
+          ],
+        ]
         : [["createdAt", "DESC"]],
     });
 
@@ -161,8 +168,8 @@ export class ProductService {
     const searchCondition = {
       [Op.and]: literal(`
         search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-          query
-        )}')
+        query
+      )}')
       `),
     };
 

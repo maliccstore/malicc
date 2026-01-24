@@ -3,9 +3,9 @@ import { CreateUserDTO } from "../dtos/CreateUser.dto";
 
 export type UserType = {
   id: number;
-  username: string;
+  username?: string;
   phoneNumber: string;
-  email: string;
+  email?: string;
   otp?: string | null;
   otpExpiration?: Date | null;
   role: UserRole;

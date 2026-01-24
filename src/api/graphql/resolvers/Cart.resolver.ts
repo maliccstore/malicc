@@ -33,7 +33,7 @@ export class UpdateCartItemInput {
 @Service()
 @Resolver()
 export class CartResolver {
-  constructor(private cartService: CartService) {}
+  constructor(private cartService: CartService) { }
 
   @Query(() => CartType, { nullable: true })
   async getCart(@Ctx() ctx: GraphQLContext): Promise<CartType | null> {
@@ -41,15 +41,19 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
     // Refresh prices before returning cart
     const freshCart = await this.cartService.refreshCartPrices(
-      ctx.session.sessionId
+      ctx.session.sessionId,
+      userId
     );
 
     console.log("🛒 Fresh cart data:", {
       cartId: freshCart.id,
       items: freshCart.items,
       totalItems: freshCart.totalItems,
+      userId
     });
 
     return this.mapCartDataToCartType(freshCart);
@@ -64,7 +68,13 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
-    const cart = await this.cartService.addToCart(ctx.session.sessionId, input);
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
+    const cart = await this.cartService.addToCart(
+      ctx.session.sessionId,
+      input,
+      userId
+    );
 
     console.log("✅ Added to cart:", {
       cartId: cart.id,
@@ -72,6 +82,7 @@ export class CartResolver {
       quantity: input.quantity,
       itemsCount: cart.items.length,
       totalItems: cart.totalItems,
+      userId
     });
 
     return this.mapCartDataToCartType(cart);
@@ -86,9 +97,12 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
     const cart = await this.cartService.updateCartItem(
       ctx.session.sessionId,
-      input
+      input,
+      userId
     );
     return this.mapCartDataToCartType(cart);
   }
@@ -102,9 +116,12 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
     const cart = await this.cartService.removeFromCart(
       ctx.session.sessionId,
-      productId
+      productId,
+      userId
     );
     return this.mapCartDataToCartType(cart);
   }
@@ -115,7 +132,12 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
-    const cart = await this.cartService.clearCart(ctx.session.sessionId);
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
+    const cart = await this.cartService.clearCart(
+      ctx.session.sessionId,
+      userId
+    );
     return this.mapCartDataToCartType(cart);
   }
 
@@ -125,9 +147,12 @@ export class CartResolver {
       throw new Error("No active session");
     }
 
+    const userId = ctx.user ? parseInt(ctx.user.id) : undefined;
+
     // Force refresh of all cart prices
     const cart = await this.cartService.refreshCartPrices(
-      ctx.session.sessionId
+      ctx.session.sessionId,
+      userId
     );
     return this.mapCartDataToCartType(cart);
   }
