@@ -18,7 +18,6 @@ import { Product } from "./ProductModel";
   timestamps: true,
 })
 export class Category extends Model<Category> {
-<<<<<<< HEAD
   @Column({
     type: DataType.UUID,
     defaultValue: DataType.UUIDV4,
@@ -26,8 +25,6 @@ export class Category extends Model<Category> {
   })
   id!: string;
 
-=======
->>>>>>> dev
   @AllowNull(false)
   @Index({ unique: true })
   @Column(DataType.STRING)
