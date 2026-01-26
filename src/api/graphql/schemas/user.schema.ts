@@ -30,6 +30,9 @@ export class UserProfile {
   @Field(() => UserRole)
   role: UserRole;
 
+  @Field(() => Boolean)
+  isAdmin?: boolean;
+
   // @Field({ nullable: true })
   otp?: string | null;
 

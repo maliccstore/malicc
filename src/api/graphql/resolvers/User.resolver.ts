@@ -1,4 +1,4 @@
-import { Query, Resolver, Arg, Mutation, Authorized, Ctx } from "type-graphql";
+import { Query, Resolver, Arg, Mutation, Authorized, Ctx, FieldResolver, Root } from "type-graphql";
 import { Service } from "typedi";
 import {
   SignupInput,
@@ -12,12 +12,22 @@ import { UserToken } from "../../../types/user";
 import { UserRole } from "../../../enums/UserRole";
 
 @Service()
-@Resolver()
+@Resolver(() => UserProfile)
 export class UserResolver {
   constructor(
     private readonly userService: UserService,
     private readonly verificationService: VerificationService
   ) { }
+
+  @FieldResolver(() => Boolean)
+  isAdmin(@Root() user: any): boolean {
+    // Attempt safe access (Sequelize model vs plain object)
+    const roleValue = user.role || (user.dataValues && user.dataValues.role);
+
+    if (!roleValue) return false;
+    const role = String(roleValue).toLowerCase();
+    return role === "admin" || role === "super_admin";
+  }
 
   // Deprecate it in production
   @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
@@ -41,7 +51,8 @@ export class UserResolver {
   async user(@Ctx() { user }: { user: UserToken }) {
     if (!user) throw new Error("Not authenticated");
     try {
-      return this.userService.getUserByPhone(user.phoneNumber);
+      const fetchedUser = await this.userService.getUserByPhone(user.phoneNumber);
+      return fetchedUser;
     } catch (error) {
       throw new Error("Failed to fetch user");
     }
