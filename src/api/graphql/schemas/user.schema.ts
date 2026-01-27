@@ -48,6 +48,14 @@ export class UserProfile {
   updatedAt?: Date;
 }
 
+@InputType()
+export class UpdateUserInput {
+  @Field({ nullable: true })
+  username?: string;
+
+  @Field({ nullable: true })
+  email?: string;
+}
 @ObjectType()
 export class AuthPayload {
   @Field()
