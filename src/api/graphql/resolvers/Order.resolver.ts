@@ -19,7 +19,7 @@ export class OrderResolver {
     @Authorized()
     @Mutation(() => OrderResponse)
     async checkout(
-        @Ctx() { user }: { user: UserToken },
+        @Ctx() { user, session }: { user: UserToken; session: any },
         @Arg("addressId") addressId: number,
         @Arg("paymentMethod", { defaultValue: "COD" }) paymentMethod: string
     ): Promise<OrderResponse> {
@@ -31,7 +31,8 @@ export class OrderResolver {
             const order = await this.orderService.createOrderFromCart(
                 user.id,
                 addressId,
-                paymentMethod
+                paymentMethod,
+                session?.sessionId
             );
 
             return {

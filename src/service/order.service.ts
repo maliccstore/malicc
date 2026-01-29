@@ -16,13 +16,34 @@ export class OrderService {
     async createOrderFromCart(
         userId: number,
         addressId: number,
-        paymentMethod: string = "COD"
+        paymentMethod: string = "COD",
+        sessionId?: string
     ): Promise<Order> {
         // 1. Fetch user's cart and address
-        const cart = await Cart.findOne({
+        // Priority: Cart with userId, then Cart with sessionId
+        let cart = await Cart.findOne({
             where: { userId },
             include: ["items"],
+            order: [["updatedAt", "DESC"]],
         });
+
+        // Fallback: Check by session ID if user cart is empty/missing
+        if ((!cart || !cart.items || cart.items.length === 0) && sessionId) {
+            console.log(`⚠️ User ${userId} has no cart, checking session ${sessionId}`);
+            const sessionCart = await Cart.findOne({
+                where: { sessionId },
+                include: ["items"],
+                order: [["updatedAt", "DESC"]],
+            });
+
+            if (sessionCart && sessionCart.items && sessionCart.items.length > 0) {
+                console.log(`✅ Found session cart ${sessionCart.id}, linking to user ${userId}`);
+                // Link this cart to the user
+                sessionCart.userId = userId;
+                await sessionCart.save();
+                cart = sessionCart;
+            }
+        }
 
         if (!cart || !cart.items || cart.items.length === 0) {
             throw new Error("Cart is empty");
