@@ -81,6 +81,9 @@ export class OrderSchema {
   @Field(() => OrderStatus)
   status!: OrderStatus;
 
+  @Field(() => FulfillmentStatus)
+  fulfillmentStatus!: FulfillmentStatus;
+
   @Field(() => Float)
   subtotal!: number;
 
