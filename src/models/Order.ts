@@ -14,7 +14,7 @@ import { Currency } from "../enums/Currency";
 import { OrderItem } from "./OrderItem";
 import Address from "./Address";
 import { ForeignKey, BelongsTo } from "sequelize-typescript";
-
+import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 @Table({
   tableName: "orders",
   timestamps: true,
@@ -48,6 +48,13 @@ export class Order extends Model {
   @Default(OrderStatus.CREATED)
   @Column(DataType.ENUM(...Object.values(OrderStatus)))
   status!: OrderStatus;
+
+  @Column({
+    type: DataType.ENUM(...Object.values(FulfillmentStatus)),
+    allowNull: false,
+    defaultValue: FulfillmentStatus.UNFULFILLED,
+  })
+  fulfillmentStatus!: FulfillmentStatus;
 
   @Column(DataType.DECIMAL(10, 2))
   subtotal!: number;

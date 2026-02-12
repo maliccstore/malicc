@@ -47,7 +47,7 @@ export class Product extends Model {
   price!: number;
 
   @Column({
-    type: DataType.ARRAY(DataType.STRING),
+    type: DataType.ARRAY(DataType.STRING(10000)),
     allowNull: false,
     defaultValue: [],
   })
@@ -85,9 +85,8 @@ export class Product extends Model {
   static async updateSearchVector(instance: Product) {
     try {
       // Use the instance values directly instead of querying the database
-      const searchText = `${instance.name || ""} ${
-        instance.description || ""
-      }`.trim();
+      const searchText = `${instance.name || ""} ${instance.description || ""
+        }`.trim();
 
       if (searchText) {
         const [result] = await Product.sequelize!.query(

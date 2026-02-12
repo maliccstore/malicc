@@ -11,14 +11,13 @@ import { checkValidOTP } from "../../../utils/otp";
 export class OTPResolver {
   constructor(
     private readonly otpService: VerificationService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
   ) {}
 
   @Mutation(() => Boolean)
   async RequestOTP(@Arg("phoneNumber") phoneNumber: string): Promise<boolean> {
-    const { otp, otpExpiration } = await this.userService.generateUserOTP(
-      phoneNumber
-    );
+    const { otp, otpExpiration } =
+      await this.userService.generateUserOTP(phoneNumber);
 
     this.otpService.sendVerificationCode(phoneNumber, otp, otpExpiration);
     return true;
@@ -27,7 +26,7 @@ export class OTPResolver {
   @Mutation(() => AuthPayload)
   async verifyOTP(
     @Arg("phoneNumber") phoneNumber: string,
-    @Arg("otp") otp: string
+    @Arg("otp") otp: string,
   ): Promise<AuthPayload> {
     const user = await this.userService.getUserByPhone(phoneNumber);
 
@@ -43,7 +42,7 @@ export class OTPResolver {
       throw new Error("Invalid OTP");
     }
     if (user) {
-      await this.userService.updateUser(user.email, updateData);
+      await this.userService.updateUserByPhone(user.phoneNumber, updateData);
 
       const token = generateJWT(user);
 
@@ -59,7 +58,7 @@ export class OTPResolver {
   }
   @Mutation(() => Boolean)
   async requestLoginOTP(
-    @Arg("phoneNumber") phoneNumber: string
+    @Arg("phoneNumber") phoneNumber: string,
   ): Promise<boolean> {
     const user = await this.userService.getUserByPhone(phoneNumber);
     if (!user) {
@@ -69,9 +68,8 @@ export class OTPResolver {
       throw new Error("User must verify their phone first");
     }
 
-    const { otp, otpExpiration } = await this.userService.generateUserOTP(
-      phoneNumber
-    );
+    const { otp, otpExpiration } =
+      await this.userService.generateUserOTP(phoneNumber);
     this.otpService.sendVerificationCode(phoneNumber, otp, otpExpiration);
     return true;
   }

@@ -30,6 +30,9 @@ export class UserProfile {
   @Field(() => UserRole)
   role: UserRole;
 
+  @Field(() => Boolean)
+  isAdmin?: boolean;
+
   // @Field({ nullable: true })
   otp?: string | null;
 
@@ -45,6 +48,14 @@ export class UserProfile {
   updatedAt?: Date;
 }
 
+@InputType()
+export class UpdateUserInput {
+  @Field({ nullable: true })
+  username?: string;
+
+  @Field({ nullable: true })
+  email?: string;
+}
 @ObjectType()
 export class AuthPayload {
   @Field()
