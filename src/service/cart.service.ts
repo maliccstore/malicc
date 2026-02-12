@@ -8,6 +8,7 @@ import {
   UpdateCartItemInput,
 } from "../interface/cart";
 import { Inventory } from "../models/Inventory";
+import { CartItem as CartItemModel } from "../models/CartItem";
 
 @Service()
 export class CartService {
@@ -19,26 +20,33 @@ export class CartService {
       { sessionId }
     );
 
-    let cart = await Cart.findOne({ where: { sessionId } });
+    let cart = await Cart.findOne({
+      where: { sessionId },
+      include: [{ model: CartItemModel, include: [Product] }],
+    });
 
     if (!cart) {
       console.log("🆕 Creating new cart");
       cart = await Cart.create({
         sessionId,
         userId,
-        items: [],
+        // items will be empty by default
         totalAmount: 0,
         totalItems: 0,
         lastUpdated: new Date(),
       });
+      // Re-fetch to ensure relations are loaded (empty array)
+      cart = await Cart.findOne({
+        where: { id: cart.id },
+        include: [{ model: CartItemModel, include: [Product] }],
+      });
     } else {
       console.log(
-        `✅ Found existing cart (ID: ${cart.id}) with ${cart.totalItems} items`,
-        { items: cart.items }
+        `✅ Found existing cart (ID: ${cart.id}) with ${cart.items?.length || 0} items`
       );
     }
 
-    return this.mapToCartData(cart);
+    return this.mapToCartData(cart!);
   }
 
   // PRIVATE method to get Cart model instance (creates if doesn't exist)
@@ -46,7 +54,10 @@ export class CartService {
     sessionId: string,
     userId?: number
   ): Promise<Cart> {
-    let cart = await Cart.findOne({ where: { sessionId } });
+    let cart = await Cart.findOne({
+      where: { sessionId },
+      include: [{ model: CartItemModel, include: [Product] }],
+    });
 
     if (!cart) {
       console.log(
@@ -56,20 +67,30 @@ export class CartService {
       cart = await Cart.create({
         sessionId,
         userId,
-        items: [],
         totalAmount: 0,
         totalItems: 0,
         lastUpdated: new Date(),
       });
+      // Re-fetch
+      cart = await Cart.findOne({
+        where: { id: cart.id },
+        include: [{ model: CartItemModel, include: [Product] }],
+      });
+    } else if (userId && !cart.userId) {
+      // Sync userId if missing
+      console.log(`🔄 Syncing userId ${userId} to cart ${cart.id}`);
+      cart.userId = userId;
+      await cart.save();
     }
 
-    return cart;
+    return cart!;
   }
 
-  // Add item to cart - CORRECTED VERSION
+  // Get product details helper
   private async getProductDetails(
     productId: string,
-    quantity: number = 1
+    quantity: number = 1,
+    checkStock: boolean = true
   ): Promise<{
     price: number;
     name: string;
@@ -90,13 +111,16 @@ export class CartService {
     }
 
     // Check inventory
-    const inStock = await product.checkStock(quantity);
     const availableQuantity = await product.getAvailableQuantity();
+    let inStock = true;
 
-    if (!inStock) {
-      throw new Error(
-        `Product ${product.name} is out of stock. Available: ${availableQuantity}`
-      );
+    if (checkStock) {
+      inStock = await product.checkStock(quantity);
+      if (!inStock) {
+        throw new Error(
+          `Product ${product.name} is out of stock. Available: ${availableQuantity}`
+        );
+      }
     }
 
     return {
@@ -145,58 +169,51 @@ export class CartService {
       `✅ Reserved ${input.quantity} items for ${productDetails.name}`
     );
 
-    // Ensure items is always an array
-    const currentItems = Array.isArray(cartModel.items)
-      ? [...cartModel.items]
-      : [];
+    // Check if item exists in cart
+    const existingItem = await CartItemModel.findOne({
+      where: {
+        cartId: cartModel.id,
+        productId: input.productId
+      }
+    });
 
-    const existingItemIndex = currentItems.findIndex(
-      (item) => item.productId === input.productId
-    );
-
-    if (existingItemIndex >= 0) {
+    if (existingItem) {
       // Update existing item
-      currentItems[existingItemIndex].quantity += input.quantity;
-      currentItems[existingItemIndex].updatedAt = new Date();
-      currentItems[existingItemIndex].price = productDetails.price;
+      existingItem.quantity += input.quantity;
+      existingItem.unitPrice = productDetails.price;
+      existingItem.calculateTotals(); // helper method in model
+      await existingItem.save();
 
       console.log(
-        `🔄 Updated existing item: ${productDetails.name}, new quantity: ${currentItems[existingItemIndex].quantity}`
+        `🔄 Updated existing item: ${productDetails.name}, new quantity: ${existingItem.quantity}`
       );
     } else {
-      // Add new item with product details from database
-      const newItem: CartItem = {
+      // Create new item
+      await CartItemModel.create({
+        cartId: cartModel.id,
         productId: input.productId,
         quantity: input.quantity,
-        price: productDetails.price,
-        name: productDetails.name,
-        image: productDetails.image,
-        addedAt: new Date(),
-        updatedAt: new Date(),
-      };
-      currentItems.push(newItem);
+        unitPrice: productDetails.price,
+        totalPrice: productDetails.price * input.quantity,
+      });
 
       console.log(
         `✅ Added new item: ${productDetails.name}, quantity: ${input.quantity}`
       );
     }
 
-    // Recalculate totals
-    const totalItems = currentItems.reduce(
-      (total, item) => total + item.quantity,
-      0
-    );
-    const totalAmount = currentItems.reduce((total, item) => {
-      return total + item.price * item.quantity;
-    }, 0);
-
-    // Update the cart model
-    cartModel.items = currentItems;
-    cartModel.totalItems = totalItems;
-    cartModel.totalAmount = totalAmount;
+    // Update cart timestamp
     cartModel.lastUpdated = new Date();
-
     await cartModel.save();
+
+    // Reload cart details to update totals and return full data
+    // Assuming Cart model has a method or we can just fetch
+    await cartModel.reload({
+      include: [{ model: CartItemModel, include: [Product] }]
+    });
+
+    // Explicitly recalc totals if model hooks don't handle it
+    await cartModel.recalcTotals();
 
     return this.mapToCartData(cartModel);
   }
@@ -204,25 +221,27 @@ export class CartService {
   // Update cart item quantity with inventory adjustment
   async updateCartItem(
     sessionId: string,
-    input: UpdateCartItemInput
+    input: UpdateCartItemInput,
+    userId?: number
   ): Promise<CartData> {
     // Validate quantity
     if (input.quantity < 0) {
       throw new Error("Quantity cannot be negative");
     }
 
-    const cartModel = await this.getCartModel(sessionId);
-    const currentItems = Array.isArray(cartModel.items)
-      ? [...cartModel.items]
-      : [];
+    const cartModel = await this.getCartModel(sessionId, userId);
 
-    const itemIndex = currentItems.findIndex(
-      (item) => item.productId === input.productId
-    );
+    // Find the item
+    const cartItem = await CartItemModel.findOne({
+      where: {
+        cartId: cartModel.id,
+        productId: input.productId
+      },
+      include: [Product]
+    });
 
-    if (itemIndex >= 0) {
-      const currentItem = currentItems[itemIndex];
-      const quantityDifference = input.quantity - currentItem.quantity;
+    if (cartItem) {
+      const quantityDifference = input.quantity - cartItem.quantity;
 
       // Handle inventory reservation/release
       const inventory = await Inventory.findOne({
@@ -239,14 +258,13 @@ export class CartService {
             );
           }
           console.log(
-            `✅ Reserved ${quantityDifference} more items for ${currentItem.name}`
+            `✅ Reserved ${quantityDifference} more items for ${cartItem.product?.name || input.productId}`
           );
         } else if (quantityDifference < 0) {
           // Decreasing quantity - release items
           await inventory.release(Math.abs(quantityDifference));
           console.log(
-            `🔄 Released ${Math.abs(quantityDifference)} items for ${
-              currentItem.name
+            `🔄 Released ${Math.abs(quantityDifference)} items for ${cartItem.product?.name || input.productId
             }`
           );
         }
@@ -254,36 +272,30 @@ export class CartService {
 
       if (input.quantity === 0) {
         // Remove item if quantity is 0
-        const removedItem = currentItems[itemIndex];
-        currentItems.splice(itemIndex, 1);
-        console.log(`🗑️ Removed item: ${removedItem.name}`);
+        await cartItem.destroy();
+        console.log(`🗑️ Removed item: ${cartItem.product?.name || input.productId}`);
       } else {
         // Update quantity and refresh product details
-        const productDetails = await this.getProductDetails(input.productId);
-        currentItems[itemIndex].quantity = input.quantity;
-        currentItems[itemIndex].price = productDetails.price;
-        currentItems[itemIndex].updatedAt = new Date();
+        const productDetails = await this.getProductDetails(input.productId, 1, false); // just checking price/existence
+
+        cartItem.quantity = input.quantity;
+        cartItem.unitPrice = productDetails.price;
+        cartItem.calculateTotals();
+        await cartItem.save();
+
         console.log(
           `✏️ Updated item: ${productDetails.name}, new quantity: ${input.quantity}`
         );
       }
 
-      // Recalculate totals
-      const totalItems = currentItems.reduce(
-        (total, item) => total + item.quantity,
-        0
-      );
-      const totalAmount = currentItems.reduce((total, item) => {
-        return total + item.price * item.quantity;
-      }, 0);
-
-      // Update the model
-      cartModel.items = currentItems;
-      cartModel.totalItems = totalItems;
-      cartModel.totalAmount = totalAmount;
+      // Update cart timestamp and recalculate
       cartModel.lastUpdated = new Date();
-
       await cartModel.save();
+      await cartModel.reload({
+        include: [{ model: CartItemModel, include: [Product] }]
+      });
+      await cartModel.recalcTotals();
+
     } else {
       throw new Error(`Product ${input.productId} not found in cart`);
     }
@@ -294,94 +306,105 @@ export class CartService {
   // Remove item from cart with inventory release
   async removeFromCart(
     sessionId: string,
-    productId: string
+    productId: string,
+    userId?: number
   ): Promise<CartData> {
-    const cartModel = await this.getCartModel(sessionId);
-    const currentItems = Array.isArray(cartModel.items)
-      ? [...cartModel.items]
-      : [];
+    const cartModel = await this.getCartModel(sessionId, userId);
 
-    const itemIndex = currentItems.findIndex(
-      (item) => item.productId === productId
-    );
+    const cartItem = await CartItemModel.findOne({
+      where: {
+        cartId: cartModel.id,
+        productId: productId
+      }
+    });
 
-    if (itemIndex >= 0) {
-      const removedItem = currentItems[itemIndex];
-
+    if (cartItem) {
       // Release reserved items from inventory
       const inventory = await Inventory.findOne({ where: { productId } });
       if (inventory) {
-        await inventory.release(removedItem.quantity);
+        await inventory.release(cartItem.quantity);
         console.log(
-          `🔄 Released ${removedItem.quantity} reserved items for ${removedItem.name}`
+          `🔄 Released ${cartItem.quantity} reserved items for product ${productId}`
         );
       }
 
       // Remove from cart
-      currentItems.splice(itemIndex, 1);
-      console.log(`🗑️ Removed item from cart: ${removedItem.name}`);
+      await cartItem.destroy();
+      console.log(`🗑️ Removed item from cart: ${productId}`);
 
-      // Recalculate totals
-      const totalItems = currentItems.reduce(
-        (total, item) => total + item.quantity,
-        0
-      );
-      const totalAmount = currentItems.reduce((total, item) => {
-        return total + item.price * item.quantity;
-      }, 0);
-
-      // Update the model
-      cartModel.items = currentItems;
-      cartModel.totalItems = totalItems;
-      cartModel.totalAmount = totalAmount;
+      // Update cart
       cartModel.lastUpdated = new Date();
-
       await cartModel.save();
+      await cartModel.reload({
+        include: [{ model: CartItemModel, include: [Product] }]
+      });
+      await cartModel.recalcTotals();
     }
 
     return this.mapToCartData(cartModel);
   }
 
   // Clear entire cart with inventory release
-  async clearCart(sessionId: string): Promise<CartData> {
-    const cartModel = await this.getCartModel(sessionId);
+  async clearCart(
+    sessionId: string,
+    userId?: number
+  ): Promise<CartData> {
+    const cartModel = await this.getCartModel(sessionId, userId);
 
     console.log(
-      `🧹 Clearing entire cart (ID: ${cartModel.id}) with ${cartModel.items.length} items`
+      `🧹 Clearing entire cart (ID: ${cartModel.id})`
     );
 
+    // We need to iterate to release inventory
+    // (Optimization: could do bulk inventory update if architecture allowed, but simplistic here)
+    const items = cartModel.items || [];
+
     // Release all reserved items from inventory
-    for (const item of cartModel.items) {
+    for (const item of items) {
       const inventory = await Inventory.findOne({
         where: { productId: item.productId },
       });
       if (inventory) {
         await inventory.release(item.quantity);
         console.log(
-          `🔄 Released ${item.quantity} reserved items for ${item.name}`
+          `🔄 Released ${item.quantity} reserved items for product ${item.productId}`
         );
       }
     }
 
-    cartModel.items = [];
+    // Delete all items
+    await CartItemModel.destroy({
+      where: { cartId: cartModel.id }
+    });
+
     cartModel.totalAmount = 0;
     cartModel.totalItems = 0;
     cartModel.lastUpdated = new Date();
 
     await cartModel.save();
 
+    // return empty cart structure
     return this.mapToCartData(cartModel);
   }
 
-  // Refresh cart prices (useful before checkout) - CORRECTED VERSION
-  async refreshCartPrices(sessionId: string): Promise<CartData> {
-    const cartModel = await this.getCartModel(sessionId);
-    const currentItems = Array.isArray(cartModel.items)
-      ? [...cartModel.items]
-      : [];
+  // Refresh cart prices (useful before checkout)
+  async refreshCartPrices(
+    sessionId: string,
+    userId?: number
+  ): Promise<CartData> {
+    const cartModel = await this.getCartModel(sessionId, userId);
+
+    // Ensure items are loaded
+    if (!cartModel.items) {
+      await cartModel.reload({
+        include: [{ model: CartItemModel, include: [Product] }]
+      });
+    }
+
+    const items = cartModel.items || [];
 
     // If cart is empty, just return it
-    if (currentItems.length === 0) {
+    if (items.length === 0) {
       console.log("🛒 Cart is empty, no prices to refresh");
       return this.mapToCartData(cartModel);
     }
@@ -391,25 +414,26 @@ export class CartService {
     let removedItems = 0;
 
     // Refresh prices for all items
-    for (let i = currentItems.length - 1; i >= 0; i--) {
-      const item = currentItems[i];
+    for (const item of items) {
       try {
-        const productDetails = await this.getProductDetails(item.productId);
-
         // Check if price changed
-        if (item.price !== productDetails.price) {
-          item.price = productDetails.price;
-          item.updatedAt = new Date();
+        const productDetails = await this.getProductDetails(item.productId, 1, false);
+
+        if (Number(item.unitPrice) !== productDetails.price) {
+          item.unitPrice = productDetails.price;
+          item.calculateTotals();
+          await item.save();
+
           needsUpdate = true;
           updatedItems++;
-          console.log(`🔄 Updated price for ${item.name}: ${item.price}`);
+          console.log(`🔄 Updated price for product ${item.productId}: ${item.unitPrice}`);
         }
       } catch (error) {
         // If product is no longer available, remove it from cart
         console.warn(
           `❌ Product ${item.productId} no longer available, removing from cart`
         );
-        currentItems.splice(i, 1);
+        await item.destroy();
         needsUpdate = true;
         removedItems++;
       }
@@ -420,21 +444,10 @@ export class CartService {
         `📊 Price refresh: ${updatedItems} items updated, ${removedItems} items removed`
       );
 
-      // Recalculate totals
-      const totalItems = currentItems.reduce(
-        (total, item) => total + item.quantity,
-        0
-      );
-      const totalAmount = currentItems.reduce((total, item) => {
-        return total + item.price * item.quantity;
-      }, 0);
-
-      cartModel.items = currentItems;
-      cartModel.totalItems = totalItems;
-      cartModel.totalAmount = totalAmount;
-      cartModel.lastUpdated = new Date();
-
-      await cartModel.save();
+      await cartModel.reload({
+        include: [{ model: CartItemModel, include: [Product] }]
+      });
+      await cartModel.recalcTotals();
     } else {
       console.log("✅ All cart prices are up to date");
     }
@@ -446,11 +459,12 @@ export class CartService {
   async getCart(sessionId: string): Promise<CartData | null> {
     const cart = await Cart.findOne({
       where: { sessionId },
+      include: [{ model: CartItemModel, include: [Product] }],
     });
 
     if (cart) {
       console.log(
-        `📥 Retrieved cart (ID: ${cart.id}) with ${cart.items.length} items`
+        `📥 Retrieved cart (ID: ${cart.id}) with ${cart.items?.length || 0} items`
       );
     } else {
       console.log(`📥 No cart found for session: ${sessionId}`);
@@ -463,82 +477,82 @@ export class CartService {
   async getCartByUserId(userId: string): Promise<CartData | null> {
     const cart = await Cart.findOne({
       where: { userId: parseInt(userId) },
+      include: [{ model: CartItemModel, include: [Product] }],
     });
 
     if (cart) {
       console.log(
-        `📥 Retrieved cart (ID: ${cart.id}) for user ${userId} with ${cart.items.length} items`
+        `📥 Retrieved cart (ID: ${cart.id}) for user ${userId} with ${cart.items?.length || 0} items`
       );
     }
 
     return cart ? this.mapToCartData(cart) : null;
   }
 
-  // Merge guest cart with user cart (when user logs in) - CORRECTED VERSION
+  // Merge guest cart with user cart (when user logs in)
   async mergeCarts(guestSessionId: string, userId: string): Promise<CartData> {
     console.log(
       `🔄 Merging guest cart (${guestSessionId}) with user cart (${userId})`
     );
 
-    const guestCart = await this.getCart(guestSessionId);
-    const userCart = await this.getCartByUserId(userId);
+    const guestCart = await this.getCart(guestSessionId); // returns mapped data, but we need models really
+    // Let's fetch models directly
+    const guestCartModel = await Cart.findOne({
+      where: { sessionId: guestSessionId },
+      include: [{ model: CartItemModel }]
+    });
 
-    if (!guestCart || guestCart.items.length === 0) {
+    const userCartModel = await Cart.findOne({
+      where: { userId: parseInt(userId) },
+      include: [{ model: CartItemModel }]
+    });
+
+    if (!guestCartModel || !guestCartModel.items || guestCartModel.items.length === 0) {
       console.log("📭 Guest cart is empty, returning user cart");
       return (
-        userCart ||
-        (await this.getOrCreateCart(guestSessionId, parseInt(userId)))
+        (userCartModel ? this.mapToCartData(userCartModel) : await this.getOrCreateCart(guestSessionId, parseInt(userId)))
       );
     }
 
-    if (!userCart || userCart.items.length === 0) {
-      // Simply assign the user ID to the guest cart
-      console.log("📭 User cart is empty, assigning user ID to guest cart");
-      const guestCartModel = await Cart.findByPk(guestCart.id);
-      if (guestCartModel) {
-        guestCartModel.userId = parseInt(userId);
-        await guestCartModel.save();
-        return this.mapToCartData(guestCartModel);
-      }
+    if (!userCartModel) {
+      // If no user cart, just adopt the guest cart
+      console.log("📭 No user cart, assigning user ID to guest cart");
+      guestCartModel.userId = parseInt(userId);
+      await guestCartModel.save();
+      return this.mapToCartData(guestCartModel);
     }
 
     // Both carts have items - merge them
     console.log(
-      `🔄 Merging ${guestCart.items.length} guest items with ${
-        userCart!.items.length
-      } user items`
+      `🔄 Merging ${guestCartModel.items.length} guest items into user cart`
     );
 
-    // Start with user cart items
-    const mergedItems = [...userCart!.items];
     let mergedCount = 0;
     let updatedCount = 0;
 
-    for (const guestItem of guestCart.items) {
-      const existingItemIndex = mergedItems.findIndex(
-        (item) => item.productId === guestItem.productId
-      );
+    for (const guestItem of guestCartModel.items) {
+      const existingItem = await CartItemModel.findOne({
+        where: {
+          cartId: userCartModel.id,
+          productId: guestItem.productId
+        }
+      });
 
-      if (existingItemIndex >= 0) {
-        // Combine quantities and use current price from database
-        const productDetails = await this.getProductDetails(
-          guestItem.productId
-        );
-        mergedItems[existingItemIndex].quantity += guestItem.quantity;
-        mergedItems[existingItemIndex].price = productDetails.price; // Use current price
-        mergedItems[existingItemIndex].updatedAt = new Date();
+      const productDetails = await this.getProductDetails(guestItem.productId, 1, false);
+
+      if (existingItem) {
+        existingItem.quantity += guestItem.quantity;
+        existingItem.unitPrice = productDetails.price;
+        existingItem.calculateTotals();
+        await existingItem.save();
         updatedCount++;
       } else {
-        // Add new item with refreshed product details
-        const productDetails = await this.getProductDetails(
-          guestItem.productId
-        );
-        mergedItems.push({
-          ...guestItem,
-          price: productDetails.price, // Use current price
-          name: productDetails.name,
-          image: productDetails.image,
-          updatedAt: new Date(),
+        await CartItemModel.create({
+          cartId: userCartModel.id,
+          productId: guestItem.productId,
+          quantity: guestItem.quantity,
+          unitPrice: productDetails.price,
+          totalPrice: productDetails.price * guestItem.quantity
         });
         mergedCount++;
       }
@@ -548,36 +562,21 @@ export class CartService {
       `✅ Merge complete: ${mergedCount} new items, ${updatedCount} updated items`
     );
 
-    // Update user cart with merged items
-    const userCartModel = await Cart.findByPk(userCart!.id);
-    if (userCartModel) {
-      const totalItems = mergedItems.reduce(
-        (total, item) => total + item.quantity,
-        0
-      );
-      const totalAmount = mergedItems.reduce((total, item) => {
-        return total + item.price * item.quantity;
-      }, 0);
+    // Delete guest cart (items will be deleted by ON DELETE CASCADE usually, or we clean up)
+    await CartItemModel.destroy({ where: { cartId: guestCartModel.id } });
+    await guestCartModel.destroy();
 
-      userCartModel.items = mergedItems;
-      userCartModel.totalItems = totalItems;
-      userCartModel.totalAmount = totalAmount;
-      userCartModel.lastUpdated = new Date();
-      await userCartModel.save();
+    // Reload user cart
+    await userCartModel.reload({
+      include: [{ model: CartItemModel, include: [Product] }]
+    });
+    await userCartModel.recalcTotals();
 
-      // Delete guest cart
-      await Cart.destroy({
-        where: { sessionId: guestSessionId },
-      });
-
-      console.log(`✅ Cart merge completed successfully`);
-      return this.mapToCartData(userCartModel);
-    }
-
-    throw new Error("Failed to merge carts");
+    console.log(`✅ Cart merge completed successfully`);
+    return this.mapToCartData(userCartModel);
   }
 
-  // Transfer cart to user (when user logs in) - SIMPLIFIED VERSION
+  // Transfer cart to user
   async transferCartToUser(
     sessionId: string,
     userId: string
@@ -608,36 +607,45 @@ export class CartService {
     cartModel.userId = parseInt(userId);
     await cartModel.save();
 
+    // Reload and return
+    await cartModel.reload({
+      include: [{ model: CartItemModel, include: [Product] }]
+    });
+
     return this.mapToCartData(cartModel);
   }
 
   // Helper to map Sequelize model to CartData interface
   private mapToCartData(cart: Cart): CartData {
     const items = cart.items || [];
-    const totalAmount = items.reduce((total, item) => {
-      return total + item.price * item.quantity;
-    }, 0);
-    const totalItems = items.reduce((total, item) => total + item.quantity, 0);
 
-    // Ensure database values match calculated values
-    if (Math.abs(cart.totalAmount - totalAmount) > 0.01) {
-      console.warn(
-        `💰 Cart total amount mismatch: DB=${cart.totalAmount}, Calculated=${totalAmount}`
-      );
-    }
-    if (cart.totalItems !== totalItems) {
-      console.warn(
-        `🛒 Cart total items mismatch: DB=${cart.totalItems}, Calculated=${totalItems}`
-      );
-    }
+    // Map items to interface
+    const mappedItems: CartItem[] = items.map(item => {
+      // Handle possible missing product (shouldn't happen with include, but separate handling if product deleted)
+      const productName = item.product ? item.product.name : 'Unavailable Product';
+      const imageUrl = item.product && item.product.imageUrl && item.product.imageUrl.length > 0
+        ? item.product.imageUrl[0]
+        : undefined;
 
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        price: Number(item.unitPrice),
+        name: productName,
+        image: imageUrl,
+        addedAt: item.createdAt || new Date(),
+        updatedAt: item.updatedAt || new Date()
+      };
+    });
+
+    // Use values from parent cart, which should be updated by recalcTotals
     return {
       id: cart.id,
       sessionId: cart.sessionId,
       userId: cart.userId,
-      items: items,
-      totalAmount: totalAmount, // Use calculated total for accuracy
-      totalItems: totalItems, // Use calculated total for accuracy
+      items: mappedItems,
+      totalAmount: Number(cart.totalAmount),
+      totalItems: cart.totalItems,
       lastUpdated: cart.lastUpdated,
     };
   }

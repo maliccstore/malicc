@@ -18,8 +18,8 @@ export class UserProfile {
   @Field(() => ID)
   id?: number;
 
-  @Field()
-  username: string;
+  @Field({ nullable: true })
+  username?: string;
 
   @Field()
   phoneNumber: string;
@@ -30,13 +30,16 @@ export class UserProfile {
   @Field(() => UserRole)
   role: UserRole;
 
+  @Field(() => Boolean)
+  isAdmin?: boolean;
+
   // @Field({ nullable: true })
   otp?: string | null;
 
   otpExpiration?: Date | null;
 
-  @Field()
-  email: string;
+  @Field({ nullable: true })
+  email?: string;
 
   @Field(() => Date)
   createdAt?: Date;
@@ -45,6 +48,14 @@ export class UserProfile {
   updatedAt?: Date;
 }
 
+@InputType()
+export class UpdateUserInput {
+  @Field({ nullable: true })
+  username?: string;
+
+  @Field({ nullable: true })
+  email?: string;
+}
 @ObjectType()
 export class AuthPayload {
   @Field()

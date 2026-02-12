@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { formatGraphQLError } from "./utils/errorHandler";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
@@ -18,6 +19,10 @@ import { createContext } from "./api/graphql/context";
 import cookieParser from "cookie-parser";
 import { sessionMiddleware } from "./middlewares/session";
 import { InventoryResolver } from "./api/graphql/resolvers/Inventory.resolver";
+import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
+import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
+import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
+
 async function bootstrap() {
   dotenv.config();
   const app: Express = express();
@@ -33,6 +38,9 @@ async function bootstrap() {
       SessionResolver,
       CartResolver,
       InventoryResolver,
+      OrderResolver,
+      AddressResolver,
+      CategoryResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -43,7 +51,7 @@ async function bootstrap() {
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
-    includeStacktraceInErrorResponses: process.env.NODE_ENV !== "production",
+    formatError: formatGraphQLError,
   });
 
   await apolloServer.start();

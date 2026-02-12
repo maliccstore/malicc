@@ -76,6 +76,15 @@ export const createContext = async ({
         user.id,
         user.role
       );
+
+      // Transfer cart as well
+      try {
+        await cartService.transferCartToUser(session.sessionId, user.id);
+        console.log("✅ Cart transferred to user", user.id);
+      } catch (cartError) {
+        console.error("❌ Error transferring cart:", cartError);
+      }
+
       session = convertedSession || session;
     }
 

@@ -2,6 +2,7 @@ import { Service } from "typedi";
 import { Product } from "../models/ProductModel";
 import { Op, literal } from "sequelize";
 import { Inventory } from "../models/Inventory";
+import { Category } from "../models/Category";
 
 @Service()
 export class ProductService {
@@ -16,9 +17,16 @@ export class ProductService {
     initialQuantity?: number;
   }): Promise<Product> {
     const { initialQuantity = 0, ...productFields } = productData;
+
+    // Map category to categoryId for the DB
+    const dbPayload: any = {
+      ...productFields,
+      categoryId: productData.category
+    };
+
     return await Product.sequelize!.transaction(async (transaction) => {
       // Create the product
-      const product = await Product.create(productFields, { transaction });
+      const product = await Product.create(dbPayload, { transaction });
 
       // Create inventory record
       await Inventory.create(
@@ -59,7 +67,7 @@ export class ProductService {
     const where: any = {};
 
     if (filters?.category) {
-      where.category = filters.category;
+      where.categoryId = filters.category;
     }
 
     if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
@@ -82,8 +90,8 @@ export class ProductService {
       searchCondition = {
         [Op.and]: literal(`
           search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-            filters.search
-          )}')
+          filters.search
+        )}')
         `),
       };
     }
@@ -94,15 +102,15 @@ export class ProductService {
       where: finalWhere,
       order: filters?.search
         ? [
-            [
-              literal(
-                `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
-                  filters.search
-                )}'))`
-              ),
-              "DESC",
-            ],
-          ]
+          [
+            literal(
+              `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+                filters.search
+              )}'))`
+            ),
+            "DESC",
+          ],
+        ]
         : [["createdAt", "DESC"]],
     });
 
@@ -118,7 +126,9 @@ export class ProductService {
       if (filters?.search) {
         message = `No products found matching your search criteria: "${filters.search}"`;
       } else if (filters?.category) {
-        message = `No products found in category: "${filters.category}"`;
+        const category = await Category.findByPk(filters.category);
+        const categoryName = category ? category.name : filters.category;
+        message = `No products found in category: "${categoryName}"`;
       } else if (Object.keys(filters || {}).length > 0) {
         message = "No products found matching the specified filters";
       } else {
@@ -141,7 +151,7 @@ export class ProductService {
     const where: any = {};
 
     if (filters?.category) {
-      where.category = filters.category;
+      where.categoryId = filters.category;
     }
 
     if (filters?.minPrice !== undefined || filters?.maxPrice !== undefined) {
@@ -161,8 +171,8 @@ export class ProductService {
     const searchCondition = {
       [Op.and]: literal(`
         search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-          query
-        )}')
+        query
+      )}')
       `),
     };
 
@@ -192,7 +202,9 @@ export class ProductService {
     if (totalCount === 0) {
       message = `No products found matching your search: "${query}"`;
       if (filters?.category) {
-        message += ` in category: "${filters.category}"`;
+        const category = await Category.findByPk(filters.category);
+        const categoryName = category ? category.name : filters.category;
+        message += ` in category: "${categoryName}"`;
       }
     }
 
@@ -220,7 +232,14 @@ export class ProductService {
       throw new Error(`Product with ID ${id} not found`);
     }
 
-    await product.update(updateData);
+    const { category, ...rest } = updateData;
+    const payload: any = { ...rest };
+
+    if (category) {
+      payload.categoryId = category;
+    }
+
+    await product.update(payload);
     return product;
   }
 
@@ -248,13 +267,15 @@ export class ProductService {
     category: string
   ): Promise<{ products: Product[]; message?: string }> {
     const products = await Product.findAll({
-      where: { category, isActive: true },
+      where: { categoryId: category, isActive: true },
       order: [["createdAt", "DESC"]],
     });
 
     let message: string | undefined;
     if (products.length === 0) {
-      message = `No active products found in category: "${category}"`;
+      const categoryObj = await Category.findByPk(category);
+      const categoryName = categoryObj ? categoryObj.name : category;
+      message = `No active products found in category: "${categoryName}"`;
     }
 
     return { products, message };

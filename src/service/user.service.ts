@@ -12,22 +12,14 @@ import { UserType } from "../types/user";
 @Service()
 class UserService {
   async createUser(userData: NewUserType) {
-    try {
-      const user = await User.create(userData as UserType);
-
-      return user;
-    } catch (error) {
-      throw new Error(`Username or email already exists ${error}`);
-    }
+    const user = await User.create(userData as UserType);
+    return user;
   }
 
-  async findUser(id: number) {
-    try {
-      return await User.findByPk(id);
-    } catch {
-      return null;
-    }
+  async findUser(id: number): Promise<User | null> {
+    return User.findByPk(id);
   }
+
   async findUserByEmail(email: string): Promise<User | null> {
     try {
       const user = await User.findOne({ where: { email } });
@@ -48,13 +40,15 @@ class UserService {
     const users = await User.findAll();
     return users;
   }
-  async updateUser(emailToFind: string, updatedData: Partial<User>) {
+  async updateUserByPhone(phoneNumber: string, updatedData: Partial<User>) {
     const [updatedRows] = await User.update(updatedData, {
-      where: { email: emailToFind },
+      where: { phoneNumber },
     });
+
     if (updatedRows === 0) {
-      throw new Error(`No user found with email ${emailToFind}`);
+      throw new Error(`No user found with phone number ${phoneNumber}`);
     }
+
     return updatedRows;
   }
 
@@ -81,7 +75,7 @@ class UserService {
       },
       {
         where: { phoneNumber: phoneNumber },
-      }
+      },
     );
 
     if (updatedRows === 0) {

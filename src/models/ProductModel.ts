@@ -9,9 +9,12 @@ import {
   BeforeSave,
   BeforeUpdate,
   HasOne,
+  BelongsTo,
+  ForeignKey,
 } from "sequelize-typescript";
 import { Inventory } from "./Inventory";
 import { QueryTypes } from "sequelize";
+import { Category } from "./Category";
 
 @Table({
   tableName: "products",
@@ -44,13 +47,7 @@ export class Product extends Model {
   price!: number;
 
   @Column({
-    type: DataType.STRING(100),
-    allowNull: false,
-  })
-  category!: string;
-
-  @Column({
-    type: DataType.ARRAY(DataType.STRING),
+    type: DataType.ARRAY(DataType.STRING(10000)),
     allowNull: false,
     defaultValue: [],
   })
@@ -69,6 +66,13 @@ export class Product extends Model {
   })
   sku?: string;
 
+  @ForeignKey(() => Category)
+  @Column(DataType.UUID)
+  categoryId!: string;
+
+  @BelongsTo(() => Category)
+  category?: Category;
+
   // Add full-text search vector column
   @Column({
     type: DataType.TSVECTOR,
@@ -81,9 +85,8 @@ export class Product extends Model {
   static async updateSearchVector(instance: Product) {
     try {
       // Use the instance values directly instead of querying the database
-      const searchText = `${instance.name || ""} ${
-        instance.description || ""
-      }`.trim();
+      const searchText = `${instance.name || ""} ${instance.description || ""
+        }`.trim();
 
       if (searchText) {
         const [result] = await Product.sequelize!.query(
@@ -91,7 +94,7 @@ export class Product extends Model {
           {
             bind: [searchText],
             type: QueryTypes.SELECT,
-          }
+          },
         );
 
         instance.search_vector = (result as any).vector;
