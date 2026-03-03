@@ -7,3 +7,5 @@ eslint.config.mjs
 .env.production
 
 Dockerfile.prod
+DOCKERFILE
+Dockerfile.dev
