@@ -23,6 +23,7 @@ export class OrderResolver {
     @Ctx() { user, session }: { user: UserToken; session: any },
     @Arg("addressId") addressId: number,
     @Arg("paymentMethod", { defaultValue: "COD" }) paymentMethod: string,
+    @Arg("couponCode", { nullable: true }) couponCode?: string,
   ): Promise<OrderResponse> {
     try {
       if (!user || !user.id) {

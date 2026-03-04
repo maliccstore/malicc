@@ -43,6 +43,10 @@ export class Order extends Model {
   @BelongsTo(() => Coupon)
   coupon?: Coupon;
 
+  @AllowNull(true)
+  @Column(DataType.DECIMAL(10, 2))
+  discountAmount?: number;
+
   @ForeignKey(() => Address)
   @AllowNull(true)
   @Column(DataType.INTEGER)

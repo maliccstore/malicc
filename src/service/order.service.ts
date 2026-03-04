@@ -11,6 +11,7 @@ import { Product } from "../models/ProductModel";
 import { OrderFilterInput } from "../api/graphql/inputs/OrderInput";
 import { FindOptions } from "sequelize";
 import { FulfillmentStatus } from "../enums/FulfillmentStatus";
+import { CouponService } from "./coupon.service";
 
 @Service()
 export class OrderService {
@@ -19,6 +20,7 @@ export class OrderService {
     addressId: number,
     paymentMethod: string = "COD",
     sessionId?: string,
+    couponCode?: string,
   ): Promise<Order> {
     // 1. Fetch user's cart and address
     // Priority: Cart with userId, then Cart with sessionId
@@ -69,6 +71,27 @@ export class OrderService {
       // 3. Create Order Snapshot
       const addressSnapshot = address.toJSON();
 
+      // Handle coupon if provided
+      const couponService = new CouponService();
+
+      let discountAmount = 0;
+      let couponId: string | undefined;
+
+      if (couponCode) {
+        const coupon = await couponService.validateCoupon(
+          couponCode,
+          userId,
+          cart.totalAmount,
+        );
+
+        discountAmount = couponService.calculateDiscount(
+          coupon,
+          cart.totalAmount,
+        );
+
+        couponId = coupon.id;
+      }
+
       const order = await Order.create(
         {
           userId,
@@ -77,7 +100,12 @@ export class OrderService {
           subtotal: cart.totalAmount, // Assuming cart.totalAmount is correct
           tax: 0, // Placeholder for tax calculation
           shippingFee: 0, // Placeholder for shipping calculation
-          totalAmount: cart.totalAmount, // Adjust for tax/shipping
+          totalAmount:
+            cart.totalAmount - discountAmount < 0
+              ? 0
+              : cart.totalAmount - discountAmount, // Apply discount to total amount
+          couponId, // Store the applied coupon ID for reference
+          discountAmount, // Store the discount amount for reference
           currency: Currency.INR,
           shippingAddress: addressSnapshot,
           paymentMethod,
@@ -126,6 +154,16 @@ export class OrderService {
             totalPrice: product.price * cartItem.quantity,
           },
           { transaction },
+        );
+      }
+
+      // Record coupon usage BEFORE clearing cart
+      if (couponId) {
+        await couponService.recordCouponUsage(
+          couponId,
+          userId,
+          order.id,
+          // transaction, // pass transaction if your service supports it
         );
       }
 
