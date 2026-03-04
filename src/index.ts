@@ -22,6 +22,7 @@ import { InventoryResolver } from "./api/graphql/resolvers/Inventory.resolver";
 import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
 import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
 import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
+import { CouponResolver } from "./api/graphql/resolvers/Coupon.resolver";
 
 async function bootstrap() {
   dotenv.config();
@@ -41,6 +42,7 @@ async function bootstrap() {
       OrderResolver,
       AddressResolver,
       CategoryResolver,
+      CouponResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -75,7 +77,7 @@ async function bootstrap() {
   const corsOptions = {
     origin: function (
       origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
+      callback: (err: Error | null, allow?: boolean) => void,
     ) {
       // Allow requests with no origin (like mobile apps, Postman, curl)
       if (!origin) return callback(null, true);
@@ -131,7 +133,7 @@ async function bootstrap() {
         // Use the createContext function
         return createContext({ req, res });
       },
-    })
+    }),
   );
 
   // Health check endpoint
