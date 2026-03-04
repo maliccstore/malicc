@@ -3,6 +3,7 @@ import { Coupon } from "../models/Coupon";
 import { CouponUsage } from "../models/CouponUsage";
 import { Order } from "../models/Order";
 import { DiscountType } from "../enums/DiscountType";
+import { OrderStatus } from "../enums/OrderStatus";
 
 @Service()
 export class CouponService {
@@ -82,6 +83,10 @@ export class CouponService {
         throw new Error(`Order with ID ${orderId} not found`);
       }
 
+      if (order.status !== OrderStatus.CREATED) {
+        throw new Error("Coupon can only be applied to new orders");
+      }
+
       const coupon = await this.validateCoupon(
         code,
         userId,
@@ -90,7 +95,8 @@ export class CouponService {
 
       const discount = this.calculateDiscount(coupon, Number(order.subtotal));
 
-      const newTotal = Number(order.totalAmount) - discount;
+      // Always recompute from subtotal
+      const newTotal = Number(order.subtotal) - discount;
 
       await order.update(
         {

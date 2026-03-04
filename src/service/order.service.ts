@@ -73,22 +73,32 @@ export class OrderService {
       // 3. Create Order Snapshot
       const addressSnapshot = address.toJSON();
 
-      // Handle coupon if provided
-      const couponService = new CouponService();
+      // 🔐 STEP 1: Recalculate subtotal from DB (NEVER trust cart.totalAmount)
+      let recalculatedSubtotal = 0;
 
+      for (const cartItem of cart.items) {
+        const product = await Product.findByPk(cartItem.productId);
+        if (!product) {
+          throw new Error(`Product ${cartItem.productId} not found`);
+        }
+
+        recalculatedSubtotal += Number(product.price) * cartItem.quantity;
+      }
+
+      // 🔐 STEP 2: Validate & compute coupon securely
       let discountAmount = 0;
       let couponId: string | undefined;
 
       if (couponCode) {
-        const coupon = await couponService.validateCoupon(
+        const coupon = await this.couponService.validateCoupon(
           couponCode,
           userId,
-          cart.totalAmount,
+          recalculatedSubtotal, // 🔐 USE SERVER CALCULATED SUBTOTAL
         );
 
-        discountAmount = couponService.calculateDiscount(
+        discountAmount = this.couponService.calculateDiscount(
           coupon,
-          cart.totalAmount,
+          recalculatedSubtotal,
         );
 
         couponId = coupon.id;
@@ -99,13 +109,13 @@ export class OrderService {
           userId,
           addressId,
           status: OrderStatus.CREATED,
-          subtotal: cart.totalAmount, // Assuming cart.totalAmount is correct
+          subtotal: recalculatedSubtotal, // Store server-calculated subtotal
           tax: 0, // Placeholder for tax calculation
           shippingFee: 0, // Placeholder for shipping calculation
           totalAmount:
-            cart.totalAmount - discountAmount < 0
+            recalculatedSubtotal - discountAmount < 0
               ? 0
-              : cart.totalAmount - discountAmount, // Apply discount to total amount
+              : recalculatedSubtotal - discountAmount, // Apply discount to total amount
           couponId, // Store the applied coupon ID for reference
           discountAmount, // Store the discount amount for reference
           currency: Currency.INR,
@@ -156,16 +166,6 @@ export class OrderService {
             totalPrice: product.price * cartItem.quantity,
           },
           { transaction },
-        );
-      }
-
-      // Record coupon usage BEFORE clearing cart
-      if (couponId) {
-        await couponService.recordCouponUsage(
-          couponId,
-          userId,
-          order.id,
-          // transaction, // pass transaction if your service supports it
         );
       }
 
