@@ -108,11 +108,31 @@ export class CouponService {
     couponId: string,
     userId: number,
     orderId: string,
-  ): Promise<CouponUsage> {
-    return await CouponUsage.create({
-      couponId,
-      userId,
-      orderId,
+  ): Promise<void> {
+    await Coupon.sequelize!.transaction(async (transaction) => {
+      const existingUsage = await CouponUsage.findOne({
+        where: { couponId, orderId },
+        transaction,
+      });
+
+      if (existingUsage) {
+        return;
+      }
+
+      await CouponUsage.create(
+        {
+          couponId,
+          userId,
+          orderId,
+        },
+        { transaction },
+      );
+
+      await Coupon.increment("usedCount", {
+        by: 1,
+        where: { id: couponId },
+        transaction,
+      });
     });
   }
 }

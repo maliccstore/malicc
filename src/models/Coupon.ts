@@ -64,6 +64,10 @@ export class Coupon extends Model {
   @Column(DataType.BOOLEAN)
   isActive!: boolean;
 
+  @Default(0)
+  @Column(DataType.INTEGER)
+  usedCount!: number;
+
   @HasMany(() => Order)
   orders!: Order[];
 }

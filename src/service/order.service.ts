@@ -15,6 +15,8 @@ import { CouponService } from "./coupon.service";
 
 @Service()
 export class OrderService {
+  constructor(private readonly couponService: CouponService) {}
+
   async createOrderFromCart(
     userId: number,
     addressId: number,
@@ -215,8 +217,30 @@ export class OrderService {
     const order = await Order.findByPk(id);
     if (!order) return null;
 
+    // Store previous status
+    const previousStatus = order.status;
+
     order.status = status;
     await order.save();
+
+    /**
+     * 🎯 Record coupon usage ONLY when:
+     * - Status transitions TO PAID
+     * - Was not already PAID
+     * - Order has coupon
+     */
+    if (
+      status === OrderStatus.PAID &&
+      previousStatus !== OrderStatus.PAID &&
+      order.couponId
+    ) {
+      await this.couponService.recordCouponUsage(
+        order.couponId,
+        order.userId!,
+        order.id,
+      );
+    }
+
     return order;
   }
 
