@@ -23,6 +23,7 @@ import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
 import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
 import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
 import { CouponResolver } from "./api/graphql/resolvers/Coupon.resolver";
+import { CouponExpirationJob } from "./jobs/couponExpiration.job";
 
 async function bootstrap() {
   dotenv.config();
@@ -179,6 +180,9 @@ bootstrap()
   .then(() => sequelize.sync({ alter: true }))
   .then(() => {
     console.log("Database synced");
+  })
+  .then(() => {
+    CouponExpirationJob.start();
   })
   .catch((err) => {
     console.error("Bootstrap failed:", err);
