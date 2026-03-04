@@ -13,8 +13,10 @@ import { OrderStatus } from "../enums/OrderStatus";
 import { Currency } from "../enums/Currency";
 import { OrderItem } from "./OrderItem";
 import Address from "./Address";
+import { Coupon } from "./Coupon";
 import { ForeignKey, BelongsTo } from "sequelize-typescript";
 import { FulfillmentStatus } from "../enums/FulfillmentStatus";
+
 @Table({
   tableName: "orders",
   timestamps: true,
@@ -31,6 +33,15 @@ export class Order extends Model {
   @Index
   @Column(DataType.INTEGER)
   userId?: number;
+
+  @ForeignKey(() => Coupon)
+  @AllowNull(true)
+  @Index
+  @Column(DataType.UUID)
+  couponId?: string;
+
+  @BelongsTo(() => Coupon)
+  coupon?: Coupon;
 
   @ForeignKey(() => Address)
   @AllowNull(true)
