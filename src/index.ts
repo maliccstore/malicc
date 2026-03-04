@@ -23,6 +23,7 @@ import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
 import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
 import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
 import { CouponResolver } from "./api/graphql/resolvers/Coupon.resolver";
+import { AdminCouponResolver } from "./api/graphql/resolvers/AdminCoupon.resolver";
 import { CouponExpirationJob } from "./jobs/couponExpiration.job";
 
 async function bootstrap() {
@@ -44,6 +45,7 @@ async function bootstrap() {
       AddressResolver,
       CategoryResolver,
       CouponResolver,
+      AdminCouponResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },

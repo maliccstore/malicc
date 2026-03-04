@@ -4,6 +4,7 @@ import { CouponUsage } from "../models/CouponUsage";
 import { Order } from "../models/Order";
 import { DiscountType } from "../enums/DiscountType";
 import { OrderStatus } from "../enums/OrderStatus";
+import { Op } from "sequelize";
 
 @Service()
 export class CouponService {
@@ -140,5 +141,63 @@ export class CouponService {
         transaction,
       });
     });
+  }
+
+  async createCoupon(data: any): Promise<Coupon> {
+    const existing = await Coupon.findOne({
+      where: { code: data.code },
+    });
+
+    if (existing) {
+      throw new Error("Coupon code already exists");
+    }
+
+    return await Coupon.create({
+      ...data,
+      code: data.code.toUpperCase(),
+      isActive: true,
+    });
+  }
+
+  async updateCoupon(id: string, data: any): Promise<Coupon | null> {
+    const coupon = await Coupon.findByPk(id);
+    if (!coupon) {
+      throw new Error("Coupon not found");
+    }
+
+    await coupon.update(data);
+    return coupon;
+  }
+
+  async disableCoupon(id: string): Promise<Coupon | null> {
+    const coupon = await Coupon.findByPk(id);
+    if (!coupon) {
+      throw new Error("Coupon not found");
+    }
+
+    coupon.isActive = false;
+    await coupon.save();
+    return coupon;
+  }
+
+  async listCoupons(filters: {
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ coupons: Coupon[]; totalCount: number }> {
+    const where: any = {};
+
+    if (filters.isActive !== undefined) {
+      where.isActive = filters.isActive;
+    }
+
+    const { rows, count } = await Coupon.findAndCountAll({
+      where,
+      order: [["createdAt", "DESC"]],
+      limit: filters.limit,
+      offset: filters.offset,
+    });
+
+    return { coupons: rows, totalCount: count };
   }
 }
