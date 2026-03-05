@@ -180,6 +180,10 @@ export class CouponService {
     return coupon;
   }
 
+  async getCouponById(id: string): Promise<Coupon | null> {
+    return await Coupon.findByPk(id);
+  }
+
   async listCoupons(filters: {
     isActive?: boolean;
     limit?: number;

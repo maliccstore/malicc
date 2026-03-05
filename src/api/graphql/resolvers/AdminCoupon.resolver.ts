@@ -14,7 +14,7 @@ import { Coupon } from "../../../models/Coupon";
 @Service()
 @Resolver(() => CouponSchema)
 export class AdminCouponResolver {
-  constructor(private readonly couponService: CouponService) {}
+  constructor(private readonly couponService: CouponService) { }
 
   private mapToSchema(coupon: Coupon): CouponSchema {
     return {
@@ -125,6 +125,30 @@ export class AdminCouponResolver {
         message: `Failed to fetch coupons. Error: ${error}`,
         coupons: [],
         totalCount: 0,
+      };
+    }
+  }
+
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Query(() => CouponResponse)
+  async getCouponById(@Arg("id") id: string): Promise<CouponResponse> {
+    try {
+      const coupon = await this.couponService.getCouponById(id);
+      if (!coupon) {
+        return {
+          success: false,
+          message: "Coupon not found",
+        };
+      }
+      return {
+        success: true,
+        message: "Coupon fetched successfully",
+        coupon: this.mapToSchema(coupon),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to fetch coupon",
       };
     }
   }
