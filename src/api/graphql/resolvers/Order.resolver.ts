@@ -35,6 +35,7 @@ export class OrderResolver {
         addressId,
         paymentMethod,
         session?.sessionId,
+        couponCode
       );
 
       return {

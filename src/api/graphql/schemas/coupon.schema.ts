@@ -1,4 +1,4 @@
-import { ObjectType, Field, Float, InputType, ID } from "type-graphql";
+import { ObjectType, Field, Float, InputType } from "type-graphql";
 
 @ObjectType()
 export class CouponValidationResponse {
@@ -20,6 +20,6 @@ export class ValidateCouponInput {
   @Field()
   code!: string;
 
-  @Field(() => ID)
-  orderId!: string;
+  @Field(() => Float)
+  subtotal!: number;
 }
