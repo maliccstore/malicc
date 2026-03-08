@@ -47,6 +47,7 @@
     "node-cron": "^4.2.1",
     "pg": "^8.13.3",
     "pg-hstore": "^2.3.4",
+    "razorpay": "^2.9.6",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.5",
     "sequelize-typescript": "^2.1.6",

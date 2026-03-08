@@ -1,7 +1,8 @@
 import { GraphQLError } from "graphql";
-export class AuthenticationError extends GraphQLError {
+
+export class UserInputError extends GraphQLError {
   constructor(message: string) {
     super(message);
-    this.name = "AuthenticationError";
+    this.name = "UserInputError";
   }
 }

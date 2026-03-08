@@ -83,6 +83,34 @@ export class Transaction extends Model {
   @Column(DataType.DATE)
   completedAt?: Date;
 
+  // ── Razorpay-specific fields ──────────────────────────────────
+  /**
+   * Razorpay order ID (rzp_order_xxx)
+   * Set during createPaymentOrder, before modal opens
+   */
+  @AllowNull(true)
+  @Index
+  @Column(DataType.STRING)
+  razorpayOrderId?: string;
+
+  /**
+   * Razorpay payment ID (pay_xxx)
+   * Set after user completes payment in modal
+   */
+  @AllowNull(true)
+  @Index
+  @Column(DataType.STRING)
+  razorpayPaymentId?: string;
+
+  /**
+   * HMAC-SHA256 signature from Razorpay
+   * Verified server-side before marking order PAID
+   */
+  @AllowNull(true)
+  @Column(DataType.STRING(512))
+  razorpaySignature?: string;
+  // ─────────────────────────────────────────────────────────────
+
   @BelongsTo(() => Order)
   order?: Order;
 }
