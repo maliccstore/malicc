@@ -21,7 +21,7 @@ export class ProductService {
     // Map category to categoryId for the DB
     const dbPayload: any = {
       ...productFields,
-      categoryId: productData.category
+      categoryId: productData.category,
     };
 
     return await Product.sequelize!.transaction(async (transaction) => {
@@ -37,7 +37,7 @@ export class ProductService {
           lowStockThreshold: 10,
           trackQuantity: true,
         },
-        { transaction }
+        { transaction },
       );
 
       return product;
@@ -90,8 +90,8 @@ export class ProductService {
       searchCondition = {
         [Op.and]: literal(`
           search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-          filters.search
-        )}')
+            filters.search,
+          )}')
         `),
       };
     }
@@ -102,15 +102,15 @@ export class ProductService {
       where: finalWhere,
       order: filters?.search
         ? [
-          [
-            literal(
-              `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
-                filters.search
-              )}'))`
-            ),
-            "DESC",
-          ],
-        ]
+            [
+              literal(
+                `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+                  filters.search,
+                )}'))`,
+              ),
+              "DESC",
+            ],
+          ]
         : [["createdAt", "DESC"]],
     });
 
@@ -132,7 +132,8 @@ export class ProductService {
       } else if (Object.keys(filters || {}).length > 0) {
         message = "No products found matching the specified filters";
       } else {
-        message = "No products found in the database";
+        message =
+          "No products found in the database. Please add some products to get started!";
       }
     }
 
@@ -146,7 +147,7 @@ export class ProductService {
       minPrice?: number;
       maxPrice?: number;
       isActive?: boolean;
-    }
+    },
   ): Promise<{ products: Product[]; totalCount: number; message?: string }> {
     const where: any = {};
 
@@ -171,8 +172,8 @@ export class ProductService {
     const searchCondition = {
       [Op.and]: literal(`
         search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-        query
-      )}')
+          query,
+        )}')
       `),
     };
 
@@ -184,8 +185,8 @@ export class ProductService {
         [
           literal(
             `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
-              query
-            )}'))`
+              query,
+            )}'))`,
           ),
           "DESC",
         ],
@@ -225,7 +226,7 @@ export class ProductService {
       imageUrl?: string[];
       isActive?: boolean;
       sku?: string;
-    }
+    },
   ): Promise<Product | null> {
     const product = await Product.findByPk(id);
     if (!product) {
@@ -264,7 +265,7 @@ export class ProductService {
   }
 
   async getProductsByCategory(
-    category: string
+    category: string,
   ): Promise<{ products: Product[]; message?: string }> {
     const products = await Product.findAll({
       where: { categoryId: category, isActive: true },
