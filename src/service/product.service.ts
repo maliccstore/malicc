@@ -1,8 +1,9 @@
 import { Service } from "typedi";
 import { Product } from "../models/ProductModel";
-import { Op, literal } from "sequelize";
+import { Op, Sequelize, literal } from "sequelize";
 import { Inventory } from "../models/Inventory";
 import { Category } from "../models/Category";
+import { Review } from "../models/Review";
 
 @Service()
 export class ProductService {
@@ -90,8 +91,8 @@ export class ProductService {
       searchCondition = {
         [Op.and]: literal(`
           search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-            filters.search,
-          )}')
+          filters.search,
+        )}')
         `),
       };
     }
@@ -102,15 +103,15 @@ export class ProductService {
       where: finalWhere,
       order: filters?.search
         ? [
-            [
-              literal(
-                `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
-                  filters.search,
-                )}'))`,
-              ),
-              "DESC",
-            ],
-          ]
+          [
+            literal(
+              `ts_rank_cd(search_vector, plainto_tsquery('english', '${this.escapeSearchQuery(
+                filters.search,
+              )}'))`,
+            ),
+            "DESC",
+          ],
+        ]
         : [["createdAt", "DESC"]],
     });
 
@@ -172,8 +173,8 @@ export class ProductService {
     const searchCondition = {
       [Op.and]: literal(`
         search_vector @@ plainto_tsquery('english', '${this.escapeSearchQuery(
-          query,
-        )}')
+        query,
+      )}')
       `),
     };
 
@@ -281,4 +282,27 @@ export class ProductService {
 
     return { products, message };
   }
+
+  /* updateRatingAggregation */
+  async updateRatingAggregation(productId: string) {
+    const result = await Review.findOne({
+      where: { productId, status: "approved" },
+      attributes: [
+        [Sequelize.fn("COUNT", Sequelize.col("id")), "totalReviews"],
+        [Sequelize.fn("AVG", Sequelize.col("rating")), "averageRating"],
+      ],
+      raw: true,
+    }) as any;
+
+    const totalReviews = Number(result?.totalReviews ?? 0);
+    const averageRating = Number(result?.averageRating ?? 0);
+
+    await Product.update(
+      { totalReviews, averageRating },
+      { where: { id: productId } },
+    );
+
+    return { totalReviews, averageRating };
+  }
+
 }
