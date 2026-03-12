@@ -5,10 +5,11 @@ import { Order } from "../models/Order";
 import { CreateReviewInput, UpdateReviewInput } from "../api/graphql/inputs/review.inputs";
 import { ReviewStatus } from "@/enums/ReviewStatus";
 import { ProductService } from "./product.service";
+import sanitizeHtml from "sanitize-html";
 
 @Service()
 class ReviewService {
-  constructor(private readonly productService: ProductService) {}
+  constructor(private readonly productService: ProductService) { }
 
   /* Create Review */
   async createReview(userId: number, input: CreateReviewInput) {
@@ -18,6 +19,12 @@ class ReviewService {
     // validate rating
     if (rating < 1 || rating > 5) {
       throw new Error("Rating must be between 1 and 5");
+    }
+
+    // validate review text length
+    const MAX_REVIEW_LENGTH = 1000;
+    if (reviewText && reviewText.length > MAX_REVIEW_LENGTH) {
+      throw new Error(`Review cannot exceed ${MAX_REVIEW_LENGTH} characters`);
     }
 
     // verify purchase
@@ -53,13 +60,40 @@ class ReviewService {
       throw new Error("User has already reviewed this product");
     }
 
+    // prevent review spam
+    const recentReview = await Review.findOne({
+      where: {
+        userId,
+      },
+      order: [["createdAt", "DESC"]],
+    });
+
+    if (recentReview) {
+      const timeDiff =
+        Date.now() - new Date(recentReview.createdAt).getTime();
+
+      const MIN_INTERVAL = 60 * 1000;
+
+      if (timeDiff < MIN_INTERVAL) {
+        throw new Error("Please wait before submitting another review");
+      }
+    }
+
+    // sanitize review text
+    const cleanText = reviewText
+      ? sanitizeHtml(reviewText, {
+          allowedTags: [],
+          allowedAttributes: {},
+        })
+      : null;
+
     // create review
     const review = await Review.create({
       userId,
       productId,
       orderId,
       rating,
-      reviewText,
+      reviewText: cleanText,
       status: "pending",
     });
 
@@ -81,6 +115,11 @@ class ReviewService {
 
     if (input.rating && (input.rating < 1 || input.rating > 5)) {
       throw new Error("Rating must be between 1 and 5");
+    }
+    // validate review text length
+    const MAX_REVIEW_LENGTH = 1000;
+    if (input.reviewText && input.reviewText.length > MAX_REVIEW_LENGTH) {
+      throw new Error(`Review cannot exceed ${MAX_REVIEW_LENGTH} characters`);
     }
 
     await review.update(input);
@@ -156,9 +195,9 @@ class ReviewService {
 
     review.status = ReviewStatus.APPROVED;
     await review.save();
-    
+
     // update product rating
-  await this.productService.updateRatingAggregation(review.productId);
+    await this.productService.updateRatingAggregation(review.productId);
 
     return review;
   }
