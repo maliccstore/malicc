@@ -13,6 +13,7 @@ import { OrderItem } from "../models/OrderItem";
 import { Transaction } from "../models/Transaction";
 import { Coupon } from "../models/Coupon";
 import { CouponUsage } from "../models/CouponUsage";
+import { Review } from "../models/Review";
 
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,
@@ -36,6 +37,7 @@ const sequelize = new Sequelize({
     Transaction,
     Coupon,
     CouponUsage,
+    Review,
   ],
 });
 
