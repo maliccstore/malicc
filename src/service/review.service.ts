@@ -1,11 +1,14 @@
 import { Service } from "typedi";
-import {Review} from "../models/Review";
-import {OrderItem} from "../models/OrderItem";
-import {Order} from "../models/Order";
+import { Review } from "../models/Review";
+import { OrderItem } from "../models/OrderItem";
+import { Order } from "../models/Order";
 import { CreateReviewInput, UpdateReviewInput } from "../api/graphql/inputs/review.inputs";
+import { ReviewStatus } from "@/enums/ReviewStatus";
+import { ProductService } from "./product.service";
 
 @Service()
 class ReviewService {
+  constructor(private readonly productService: ProductService) {}
 
   /* Create Review */
   async createReview(userId: number, input: CreateReviewInput) {
@@ -140,6 +143,56 @@ class ReviewService {
       averageRating,
       totalReviews,
     };
+  }
+
+  /*Admin Approve Review */
+  async adminApproveReview(reviewId: string) {
+
+    const review = await Review.findByPk(reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    review.status = ReviewStatus.APPROVED;
+    await review.save();
+    
+    // update product rating
+  await this.productService.updateRatingAggregation(review.productId);
+
+    return review;
+  }
+
+  /* Admin Reject Review */
+  async adminRejectReview(reviewId: string) {
+
+    const review = await Review.findByPk(reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    review.status = ReviewStatus.REJECTED;
+    await review.save();
+
+    await this.productService.updateRatingAggregation(review.productId);
+
+    return review;
+  }
+
+  /* Admin Delete Review */
+  async adminDeleteReview(reviewId: string) {
+
+    const review = await Review.findByPk(reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    await review.destroy();
+
+    await this.productService.updateRatingAggregation(review.productId);
+    return true;
   }
 }
 

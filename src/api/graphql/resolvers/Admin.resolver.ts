@@ -8,6 +8,7 @@ import {
 } from "../../../middlewares/adminAuth";
 import { Context } from "../context";
 import { UserRole } from "../../../enums/UserRole";
+import ReviewService from "@/service/review.service";
 
 @Resolver()
 export class AdminResolver {
@@ -57,4 +58,47 @@ export class AdminResolver {
       updatedAt: user.updatedAt,
     };
   }
+
+  /* Review Management */
+  constructor(private readonly reviewService: ReviewService) { }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async approveReview(
+    @Arg("reviewId") reviewId: string,
+    @Ctx() context: Context
+  ) {
+    requireAdmin(context);
+
+    await this.reviewService.adminApproveReview(reviewId);
+
+    return true;
+  }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async rejectReview(
+    @Arg("reviewId") reviewId: string,
+    @Ctx() context: Context
+  ) {
+    requireAdmin(context);
+
+    await this.reviewService.adminRejectReview(reviewId);
+
+    return true;
+  }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async deleteReview(
+    @Arg("reviewId") reviewId: string,
+    @Ctx() context: Context
+  ) {
+    requireAdmin(context);
+
+    await this.reviewService.adminDeleteReview(reviewId);
+
+    return true;
+  }
+
 }
