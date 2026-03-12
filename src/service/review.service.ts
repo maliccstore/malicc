@@ -3,7 +3,7 @@ import { Review } from "../models/Review";
 import { OrderItem } from "../models/OrderItem";
 import { Order } from "../models/Order";
 import { CreateReviewInput, UpdateReviewInput } from "../api/graphql/inputs/review.inputs";
-import { ReviewStatus } from "@/enums/ReviewStatus";
+import { ReviewStatus } from "../enums/ReviewStatus";
 import { ProductService } from "./product.service";
 import sanitizeHtml from "sanitize-html";
 
@@ -38,7 +38,7 @@ class ReviewService {
           model: Order,
           where: {
             userId,
-            status: "COMPLETED",
+            status: ["PAID", "FULFILLED"],
           },
         },
       ],
@@ -69,8 +69,8 @@ class ReviewService {
     });
 
     if (recentReview) {
-      const timeDiff =
-        Date.now() - new Date(recentReview.createdAt).getTime();
+      const createdAt = recentReview.getDataValue("createdAt") || (recentReview as any).createdAt;
+      const timeDiff = Date.now() - new Date(createdAt).getTime();
 
       const MIN_INTERVAL = 60 * 1000;
 
@@ -80,11 +80,12 @@ class ReviewService {
     }
 
     // sanitize review text
+    const sanitize = (typeof sanitizeHtml === 'function') ? sanitizeHtml : (sanitizeHtml as any).default;
     const cleanText = reviewText
-      ? sanitizeHtml(reviewText, {
-          allowedTags: [],
-          allowedAttributes: {},
-        })
+      ? sanitize(reviewText, {
+        allowedTags: [],
+        allowedAttributes: {},
+      })
       : null;
 
     // create review

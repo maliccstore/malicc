@@ -88,4 +88,10 @@ export class Review extends Model {
     type: DataType.ENUM(...Object.values(ReviewStatus)),
   })
   status!: ReviewStatus;
+
+  @Column(DataType.DATE)
+  createdAt!: Date;
+
+  @Column(DataType.DATE)
+  updatedAt!: Date;
 }

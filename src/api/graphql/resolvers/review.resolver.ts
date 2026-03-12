@@ -72,4 +72,26 @@ export class ReviewResolver {
         await this.reviewService.deleteReview(id, user.id);
         return true;
     }
+
+    /* Admin Mutations */
+
+    @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @Mutation(() => Review)
+    async approveReview(
+        @Ctx() { user }: { user: UserToken },
+        @Arg("id", () => ID) id: string,
+    ) {
+        if (!user) throw new Error("Not authenticated");
+        return await this.reviewService.adminApproveReview(id);
+    }
+
+    @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @Mutation(() => Review)
+    async rejectReview(
+        @Ctx() { user }: { user: UserToken },
+        @Arg("id", () => ID) id: string,
+    ) {
+        if (!user) throw new Error("Not authenticated");
+        return await this.reviewService.adminRejectReview(id);
+    }
 }

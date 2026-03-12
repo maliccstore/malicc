@@ -26,6 +26,7 @@ import { CouponResolver } from "./api/graphql/resolvers/Coupon.resolver";
 import { AdminCouponResolver } from "./api/graphql/resolvers/AdminCoupon.resolver";
 import { CouponExpirationJob } from "./jobs/couponExpiration.job";
 import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
+import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
 
 async function bootstrap() {
   dotenv.config();
@@ -48,6 +49,7 @@ async function bootstrap() {
       CouponResolver,
       AdminCouponResolver,
       PaymentResolver,
+      ReviewResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },

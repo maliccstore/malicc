@@ -18,6 +18,9 @@ export class Review {
     reviewText?: string;
 
     @Field()
+    status!: string;
+
+    @Field()
     createdAt!: string;
 }
 
