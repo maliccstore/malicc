@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { formatGraphQLError } from "./utils/errorHandler";
+import path from "path";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
@@ -27,6 +28,7 @@ import { AdminCouponResolver } from "./api/graphql/resolvers/AdminCoupon.resolve
 import { CouponExpirationJob } from "./jobs/couponExpiration.job";
 import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
 import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
+import uploadRoutes from "./api/routes/upload.routes";
 
 async function bootstrap() {
   dotenv.config();
@@ -114,6 +116,13 @@ async function bootstrap() {
 
   // Session Middleware
   app.use(sessionMiddleware);
+
+  // Modular Upload Routes
+  app.use("/admin/uploads", uploadRoutes);
+
+  // Static File Serving for uploads
+  app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+
   // GraphQL endpoint
   // GraphQL endpoint
   app.use(
