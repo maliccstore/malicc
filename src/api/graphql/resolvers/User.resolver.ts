@@ -114,6 +114,46 @@ export class UserResolver {
   }
 
   /**
+   * Mutation to update username and/or email for the currently authenticated user.
+   */
+  @Authorized()
+  @Mutation(() => UserProfile)
+  async updateUserByPhone(
+    @Arg("input") input: UpdateUserInput,
+    @Ctx() { user }: { user: UserToken },
+  ): Promise<UserProfile> {
+    if (!user?.phoneNumber) {
+      throw new Error("Not authenticated");
+    }
+
+    // --- Input validation ---
+    const validationErrors: { field: string; message: string }[] = [];
+
+    if (input.email !== undefined) {
+      const err = validateEmail(input.email);
+      if (err) validationErrors.push({ field: "email", message: err });
+    }
+
+    if (validationErrors.length > 0) {
+      throw new GraphQLError("Validation failed", {
+        extensions: {
+          code: "VALIDATION_ERROR",
+          validationErrors,
+        },
+      });
+    }
+
+    await this.userService.updateUserByPhone(user.phoneNumber, {
+      username: input.username,
+      email: input.email,
+    });
+
+    const updated = await this.userService.getUserByPhone(user.phoneNumber);
+    if (!updated) throw new Error("Failed to retrieve updated user");
+    return updated;
+  }
+
+  /**
    * Admin-only mutation to update username and/or email.
    *
    * Phone number changes go through the two-step OTP flow:
