@@ -12,6 +12,7 @@ import { OrderFilterInput } from "../api/graphql/inputs/OrderInput";
 import { FindOptions } from "sequelize";
 import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 import { CouponService } from "./coupon.service";
+import { Coupon } from "../models/Coupon";
 
 @Service()
 export class OrderService {
@@ -206,7 +207,7 @@ export class OrderService {
 
     return await Order.findOne({
       where,
-      include: [OrderItem, { model: Address, as: "address" }],
+      include: [OrderItem, { model: Address, as: "address" }, { model: Coupon, as: "coupon" }],
     });
   }
 
@@ -259,7 +260,7 @@ export class OrderService {
 
     const findOptions: FindOptions = {
       where,
-      include: [{ model: OrderItem }, { model: Address, as: "address" }],
+      include: [{ model: OrderItem }, { model: Address, as: "address" }, { model: Coupon, as: "coupon" }],
       order: [["createdAt", "DESC"]],
     };
 

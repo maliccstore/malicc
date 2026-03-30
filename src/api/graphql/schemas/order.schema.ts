@@ -10,6 +10,7 @@ import { OrderStatus } from "../../../enums/OrderStatus";
 import { Currency } from "../../../enums/Currency";
 
 import { FulfillmentStatus } from "../../../enums/FulfillmentStatus";
+import { CouponSchema } from "./adminCoupon.schema";
 
 registerEnumType(OrderStatus, {
   name: "OrderStatus",
@@ -98,6 +99,12 @@ export class OrderSchema {
 
   @Field(() => Currency)
   currency!: Currency;
+
+  @Field(() => Float, { nullable: true })
+  discountAmount?: number;
+
+  @Field(() => CouponSchema, { nullable: true })
+  coupon?: CouponSchema;
 
   @Field(() => [OrderItemSchema])
   items!: OrderItemSchema[];
