@@ -162,6 +162,7 @@ export class OrderService {
             orderId: order.id,
             productId: cartItem.productId,
             productName: product.name,
+            productImage: product.imageUrl?.[0] || null,
             unitPrice: product.price,
             quantity: cartItem.quantity,
             totalPrice: product.price * cartItem.quantity,

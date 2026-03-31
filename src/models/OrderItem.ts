@@ -5,6 +5,7 @@ import {
   DataType,
   ForeignKey,
   BelongsTo,
+  AllowNull,
 } from "sequelize-typescript";
 
 import { Order } from "./Order";
@@ -33,6 +34,10 @@ export class OrderItem extends Model {
   // snapshot fields
   @Column(DataType.STRING)
   productName!: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  productImage?: string;
 
   @Column(DataType.DECIMAL(10, 2))
   unitPrice!: number;

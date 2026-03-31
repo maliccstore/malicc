@@ -64,6 +64,9 @@ export class OrderItemSchema {
   @Field()
   productName!: string;
 
+  @Field({ nullable: true })
+  productImage?: string;
+
   @Field(() => Float)
   unitPrice!: number;
 
