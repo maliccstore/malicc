@@ -95,6 +95,28 @@ export class CategoryService {
             throw new Error("Category cannot be its own parent");
         }
 
+        // check if category with same name or slug already exists
+        if (updateData.name || updateData.slug) {
+            const orConditions: any[] = [];
+            if (updateData.name) {
+                orConditions.push({ name: { [Op.iLike]: updateData.name } });
+            }
+            if (updateData.slug) {
+                orConditions.push({ slug: { [Op.iLike]: updateData.slug } });
+            }
+
+            const existingCategory = await Category.findOne({
+                where: {
+                    [Op.or]: orConditions,
+                    id: { [Op.ne]: id }
+                },
+            });
+
+            if (existingCategory) {
+                throw new Error("Category with this name or slug already exists");
+            }
+        }
+
         await category.update(updateData as any);
         return category;
     }
