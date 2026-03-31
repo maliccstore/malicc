@@ -13,6 +13,7 @@ import { FindOptions } from "sequelize";
 import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 import { CouponService } from "./coupon.service";
 import { Coupon } from "../models/Coupon";
+import User from "../models/UserModel";
 
 @Service()
 export class OrderService {
@@ -67,6 +68,18 @@ export class OrderService {
       throw new Error("Address not found or does not belong to user");
     }
 
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // COD SECURITY: Ensure phone number is verified
+    if (paymentMethod === "COD" && !user.isPhoneVerified) {
+      throw new Error(
+        "Phone number must be verified to place a Cash on Delivery order."
+      );
+    }
+
     // 2. Start Transaction
     const transaction = await Order.sequelize!.transaction();
 
@@ -109,7 +122,7 @@ export class OrderService {
         {
           userId,
           addressId,
-          status: OrderStatus.CREATED,
+          status: paymentMethod === "COD" ? OrderStatus.PAID : OrderStatus.CREATED,
           subtotal: recalculatedSubtotal, // Store server-calculated subtotal
           tax: 0, // Placeholder for tax calculation
           shippingFee: 0, // Placeholder for shipping calculation
@@ -288,11 +301,23 @@ export class OrderService {
 
     /**
      * Guardrails:
-     * - You should not ship unpaid orders
+     * - You should not ship unpaid orders UNLESS they are COD
      * - You should not deliver unshipped orders
      */
-    if (order.status !== OrderStatus.PAID) {
+    if (
+      order.status !== OrderStatus.PAID &&
+      order.paymentMethod !== "COD"
+    ) {
       throw new Error("Cannot update fulfillment for unpaid orders");
+    }
+
+    //  AUTO-PAID: If COD is delivered, mark it as PAID automatically
+    if (
+      order.paymentMethod === "COD" &&
+      fulfillmentStatus === FulfillmentStatus.DELIVERED &&
+      order.status !== OrderStatus.PAID
+    ) {
+      order.status = OrderStatus.PAID;
     }
 
     order.fulfillmentStatus = fulfillmentStatus;
