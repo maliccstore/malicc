@@ -18,6 +18,16 @@ export class ProductService {
     initialQuantity?: number;
   }): Promise<Product> {
     const { initialQuantity = 0, ...productFields } = productData;
+    
+    // check if sku is already exists
+    if (productFields.sku) {
+      const existingProduct = await Product.findOne({
+        where: { sku: productFields.sku },
+      });
+      if (existingProduct) {
+        throw new Error(`Product with SKU ${productFields.sku} already exists`);
+      }
+    }
 
     // Map category to categoryId for the DB
     const dbPayload: any = {
@@ -232,6 +242,15 @@ export class ProductService {
     const product = await Product.findByPk(id);
     if (!product) {
       throw new Error(`Product with ID ${id} not found`);
+    }
+    // check if sku is already exists
+    if (updateData.sku && updateData.sku !== product.sku) {
+      const existingProduct = await Product.findOne({
+        where: { sku: updateData.sku },
+      });
+      if (existingProduct) {
+        throw new Error(`Product with SKU ${updateData.sku} already exists`);
+      }
     }
 
     const { category, ...rest } = updateData;

@@ -159,7 +159,7 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to create product. Error: ${error}`,
+        message: error instanceof Error ? error.message : "Failed to create product",
       };
     }
   }
