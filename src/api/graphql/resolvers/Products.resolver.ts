@@ -26,10 +26,10 @@ import { Product as ProductModel } from "../../../models/ProductModel";
 @Service()
 @Resolver(() => ProductSchema)
 export class ProductResolver {
-  constructor(private readonly productService: ProductService) { }
+  constructor(private readonly productService: ProductService) {}
 
   private mapToSchema(product: ProductModel): ProductSchema {
-    return {
+    const schema: ProductSchema = {
       id: product.id,
       name: product.name,
       description: product.description,
@@ -41,13 +41,38 @@ export class ProductResolver {
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
+
+    if (product.inventory) {
+      const inv = product.inventory;
+      schema.inventory = {
+        id: inv.id,
+        productId: inv.productId,
+        quantity: inv.quantity,
+        reservedQuantity: inv.reservedQuantity,
+        availableQuantity: inv.availableQuantity,
+        isInStock: inv.isInStock(),
+        lowStockThreshold: inv.lowStockThreshold,
+        trackQuantity: inv.trackQuantity,
+        createdAt: inv.createdAt,
+        updatedAt: inv.updatedAt,
+      };
+      
+      // Pass these along to the field resolvers via the root object
+      (schema as any)._inStock = inv.isInStock(1);
+      (schema as any)._availableQuantity = inv.availableQuantity;
+    }
+
+    return schema;
   }
 
   @FieldResolver(() => InventorySchema, { nullable: true })
   async inventory(@Root() productSchema: ProductSchema) {
+    if (productSchema.inventory) return productSchema.inventory;
+
     const productModel = await ProductModel.findByPk(productSchema.id, {
       include: [Inventory],
     });
+    // ... (logic follows)
 
     if (!productModel || !productModel.inventory) {
       return null;
@@ -70,6 +95,8 @@ export class ProductResolver {
 
   @FieldResolver(() => Boolean)
   async inStock(@Root() productSchema: ProductSchema): Promise<boolean> {
+    if ((productSchema as any)._inStock !== undefined) return (productSchema as any)._inStock;
+
     const productModel = await ProductModel.findByPk(productSchema.id, {
       include: [Inventory],
     });
@@ -80,8 +107,10 @@ export class ProductResolver {
 
   @FieldResolver(() => Number)
   async availableQuantity(
-    @Root() productSchema: ProductSchema
+    @Root() productSchema: ProductSchema,
   ): Promise<number> {
+    if ((productSchema as any)._availableQuantity !== undefined) return (productSchema as any)._availableQuantity;
+
     const productModel = await ProductModel.findByPk(productSchema.id, {
       include: [Inventory],
     });
@@ -117,14 +146,14 @@ export class ProductResolver {
 
   @Query(() => ProductsResponse)
   async products(
-    @Arg("filters", { nullable: true }) filters?: ProductFilterInput
+    @Arg("filters", { nullable: true }) filters?: ProductFilterInput,
   ): Promise<ProductsResponse> {
     try {
       const { products, totalCount, message, success } =
         await this.productService.getAllProducts(filters);
 
       const productSchemas: ProductSchema[] = products.map((product) =>
-        this.mapToSchema(product)
+        this.mapToSchema(product),
       );
       return {
         success: success !== undefined ? success : true,
@@ -135,7 +164,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to fetch products. Error: ${error}`,
+        message:
+          error instanceof Error ? error.message : "Failed to fetch products",
         products: [],
         totalCount: 0,
       };
@@ -145,7 +175,7 @@ export class ProductResolver {
   @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Mutation(() => ProductResponse)
   async createProduct(
-    @Arg("input") input: CreateProductInput
+    @Arg("input") input: CreateProductInput,
   ): Promise<ProductResponse> {
     try {
       const product = await this.productService.createProduct(input);
@@ -159,7 +189,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Failed to create product",
+        message:
+          error instanceof Error ? error.message : "Failed to create product",
       };
     }
   }
@@ -168,7 +199,7 @@ export class ProductResolver {
   @Mutation(() => ProductResponse)
   async updateProduct(
     @Arg("id") id: string,
-    @Arg("input") input: UpdateProductInput
+    @Arg("input") input: UpdateProductInput,
   ): Promise<ProductResponse> {
     try {
       const product = await this.productService.updateProduct(id, input);
@@ -211,8 +242,9 @@ export class ProductResolver {
       const product = await this.productService.toggleProductStatus(id);
       return {
         success: true,
-        message: `Product ${product?.isActive ? "activated" : "deactivated"
-          } successfully`,
+        message: `Product ${
+          product?.isActive ? "activated" : "deactivated"
+        } successfully`,
         product: product ? this.mapToSchema(product) : undefined,
       };
     } catch (error) {
@@ -228,7 +260,7 @@ export class ProductResolver {
 
   @Query(() => ProductsResponse)
   async productsByCategory(
-    @Arg("category") category: string
+    @Arg("category") category: string,
   ): Promise<ProductsResponse> {
     try {
       const { products, message } =
@@ -244,7 +276,10 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to fetch products by category. Error: ${error}`,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch products by category",
         products: [],
         totalCount: 0,
       };
@@ -254,7 +289,7 @@ export class ProductResolver {
   @Query(() => ProductsResponse)
   async searchProducts(
     @Arg("query") query: string,
-    @Arg("filters", { nullable: true }) filters?: ProductFilterInput
+    @Arg("filters", { nullable: true }) filters?: ProductFilterInput,
   ): Promise<ProductsResponse> {
     try {
       const { products, totalCount, message } =
@@ -269,7 +304,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to search products. Error: ${error}`,
+        message:
+          error instanceof Error ? error.message : "Failed to search products",
         products: [],
         totalCount: 0,
       };
@@ -280,7 +316,7 @@ export class ProductResolver {
   @Mutation(() => ProductResponse)
   async updateInventory(
     @Arg("productId") productId: string,
-    @Arg("quantity") quantity: number
+    @Arg("quantity") quantity: number,
   ): Promise<ProductResponse> {
     try {
       let inventory = await Inventory.findOne({ where: { productId } });
@@ -316,7 +352,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to update inventory. Error: ${error}`,
+        message:
+          error instanceof Error ? error.message : "Failed to update inventory",
       };
     }
   }
@@ -325,7 +362,7 @@ export class ProductResolver {
   @Mutation(() => ProductResponse)
   async restockProduct(
     @Arg("productId") productId: string,
-    @Arg("quantity") quantity: number
+    @Arg("quantity") quantity: number,
   ): Promise<ProductResponse> {
     try {
       const inventory = await Inventory.findOne({ where: { productId } });
@@ -354,7 +391,8 @@ export class ProductResolver {
     } catch (error) {
       return {
         success: false,
-        message: `Failed to restock product. Error: ${error}`,
+        message:
+          error instanceof Error ? error.message : "Failed to restock product",
       };
     }
   }

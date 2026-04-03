@@ -56,7 +56,7 @@ export class ProductService {
   }
 
   async getProductById(id: string): Promise<Product | null> {
-    const product = await Product.findByPk(id);
+    const product = await Product.findByPk(id, { include: [Inventory] });
     if (!product) {
       throw new Error(`Product with ID ${id} not found`);
     }
@@ -111,6 +111,7 @@ export class ProductService {
 
     const products = await Product.findAll({
       where: finalWhere,
+      include: [Inventory],
       order: filters?.search
         ? [
           [
@@ -192,6 +193,7 @@ export class ProductService {
 
     const products = await Product.findAll({
       where: finalWhere,
+      include: [Inventory],
       order: [
         [
           literal(
@@ -239,7 +241,7 @@ export class ProductService {
       sku?: string;
     },
   ): Promise<Product | null> {
-    const product = await Product.findByPk(id);
+    const product = await Product.findByPk(id, { include: [Inventory] });
     if (!product) {
       throw new Error(`Product with ID ${id} not found`);
     }
@@ -275,7 +277,7 @@ export class ProductService {
   }
 
   async toggleProductStatus(id: string): Promise<Product | null> {
-    const product = await Product.findByPk(id);
+    const product = await Product.findByPk(id, { include: [Inventory] });
     if (!product) {
       throw new Error(`Product with ID ${id} not found`);
     }
@@ -289,6 +291,7 @@ export class ProductService {
   ): Promise<{ products: Product[]; message?: string }> {
     const products = await Product.findAll({
       where: { categoryId: category, isActive: true },
+      include: [Inventory],
       order: [["createdAt", "DESC"]],
     });
 
