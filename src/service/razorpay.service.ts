@@ -61,3 +61,14 @@ export const verifyPaymentSignature = (
 export const fetchPaymentDetails = async (razorpayPaymentId: string) => {
   return await razorpay.payments.fetch(razorpayPaymentId);
 };
+
+/**
+ * Verify Razorpay Webhook Signature
+ */
+export const verifyWebhookSignature = (
+  payload: string,
+  signature: string,
+  secret: string,
+): boolean => {
+  return Razorpay.validateWebhookSignature(payload, signature, secret);
+};

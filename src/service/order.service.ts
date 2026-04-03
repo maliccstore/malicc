@@ -256,7 +256,61 @@ export class OrderService {
       );
     }
 
+    /**
+     * 🔄 Restore Inventory when:
+     * - Status transitions TO FAILED or CANCELLED
+     * - Previous status was NOT FAILED or CANCELLED
+     */
+    if (
+      (status === OrderStatus.FAILED || status === OrderStatus.CANCELLED) &&
+      previousStatus !== OrderStatus.FAILED &&
+      previousStatus !== OrderStatus.CANCELLED
+    ) {
+      await this.restoreOrderInventory(order.id);
+    }
+
     return order;
+  }
+
+  /**
+   * ♻️ Restore Inventory
+   * Returns items back to stock after a failed or cancelled order
+   */
+  async restoreOrderInventory(orderId: string): Promise<void> {
+    const order = await Order.findByPk(orderId, {
+      include: [OrderItem],
+    });
+
+    if (!order || !order.items) return;
+
+    const transaction = await Order.sequelize!.transaction();
+
+    try {
+      for (const item of order.items) {
+        const inventory = await Inventory.findOne({
+          where: { productId: item.productId },
+          transaction,
+        });
+
+        if (inventory) {
+          // Add back to total quantity
+          // Since createOrderFromCart decremented both quantity and reservedQuantity,
+          // we only need to add back to quantity to make it "available" again.
+          await inventory.update(
+            {
+              quantity: inventory.quantity + item.quantity,
+            },
+            { transaction },
+          );
+        }
+      }
+      await transaction.commit();
+      console.log(`✅ Restored inventory for order ${orderId}`);
+    } catch (error) {
+      await transaction.rollback();
+      console.error(`❌ Failed to restore inventory for order ${orderId}:`, error);
+      throw error;
+    }
   }
 
   async getAllOrders(

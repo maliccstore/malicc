@@ -29,6 +29,8 @@ import { CouponExpirationJob } from "./jobs/couponExpiration.job";
 import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
 import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
 import uploadRoutes from "./api/routes/upload.routes";
+import webhookRoutes from "./api/routes/webhook.routes";
+import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 
 async function bootstrap() {
   dotenv.config();
@@ -120,6 +122,9 @@ async function bootstrap() {
   // Modular Upload Routes
   app.use("/admin/uploads", uploadRoutes);
 
+  // Webhook Routes
+  app.use("/api/webhooks", webhookRoutes);
+
   // Static File Serving for uploads
   app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
 
@@ -198,6 +203,7 @@ bootstrap()
   })
   .then(() => {
     CouponExpirationJob.start();
+    OrderCleanupJob.start();
   })
   .catch((err) => {
     console.error("Bootstrap failed:", err);
