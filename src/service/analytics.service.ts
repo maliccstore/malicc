@@ -1,5 +1,6 @@
 import { Event } from "../models/Event";
 import { TrackEventPayload } from "../types/analytics.types";
+import RealtimeService from "./realtime.service";
 
 export class AnalyticsService {
   static async trackEvent(
@@ -19,6 +20,9 @@ export class AnalyticsService {
       user_id: userId,
       metadata: input.metadata || {},
     });
+
+    // 4. Update real-time stats
+    RealtimeService.processEvent(normalizedEvent, input.sessionId);
 
     return true;
   }
