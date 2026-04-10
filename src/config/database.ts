@@ -14,6 +14,7 @@ import { Transaction } from "../models/Transaction";
 import { Coupon } from "../models/Coupon";
 import { CouponUsage } from "../models/CouponUsage";
 import { Review } from "../models/Review";
+import { Event } from "../models/Event";
 
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,
@@ -38,6 +39,7 @@ const sequelize = new Sequelize({
     Coupon,
     CouponUsage,
     Review,
+    Event,
   ],
 });
 
