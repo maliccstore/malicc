@@ -31,6 +31,7 @@ import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
 import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
+import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 
 async function bootstrap() {
   dotenv.config();
@@ -54,6 +55,7 @@ async function bootstrap() {
       AdminCouponResolver,
       PaymentResolver,
       ReviewResolver,
+      AnalyticsResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -126,7 +128,10 @@ async function bootstrap() {
   app.use("/api/webhooks", webhookRoutes);
 
   // Static File Serving for uploads
-  app.use("/uploads", express.static(path.join(process.cwd(), "public", "uploads")));
+  app.use(
+    "/uploads",
+    express.static(path.join(process.cwd(), "public", "uploads")),
+  );
 
   // GraphQL endpoint
   // GraphQL endpoint
