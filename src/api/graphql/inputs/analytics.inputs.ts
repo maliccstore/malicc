@@ -4,14 +4,15 @@ import { GraphQLJSONObject } from "graphql-scalars";
 @InputType()
 export class TrackEventInput {
   @Field()
-  eventType!: string;
+  event!: string; // changed from eventType
 
-  @Field({ nullable: true })
-  userId?: string;
+  @Field()
+  sessionId!: string; // now required
 
   @Field(() => GraphQLJSONObject, { nullable: true })
   metadata?: Record<string, any>;
 
+  // optional (good to keep for future)
   @Field({ nullable: true })
-  sessionId?: string;
+  userId?: string;
 }
