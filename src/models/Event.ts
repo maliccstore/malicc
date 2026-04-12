@@ -19,10 +19,10 @@ export class Event extends Model {
   event!: string;
 
   @Column({
-    type: DataType.UUID,
+    type: DataType.INTEGER,
     allowNull: true,
   })
-  user_id?: string;
+  user_id?: number;
 
   @Column({
     type: DataType.STRING,

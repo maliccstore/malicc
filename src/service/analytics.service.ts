@@ -36,4 +36,28 @@ export class AnalyticsService {
 
     return true;
   }
+
+  // Identify user with session id
+  static async identify(
+    sessionId: string,
+    userId: string | number
+  ): Promise<boolean> {
+
+    if (!userId) {
+      return false;
+    }
+
+    // Update all events for this session
+    await Event.update(
+      { user_id: userId },
+      {
+        where: {
+          session_id: sessionId,
+        },
+      }
+    );
+
+    return true;
+  }
+
 }

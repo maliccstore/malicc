@@ -18,6 +18,21 @@ export class AnalyticsResolver {
     return AnalyticsService.trackEvent(input, context);
   }
 
+  @Mutation(() => Boolean)
+  async identify(
+    @Arg("sessionId") sessionId: string,
+    @Ctx() context: any
+  ): Promise<boolean> {
+
+    const userId = context?.user?.id;
+
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    return AnalyticsService.identify(sessionId, userId);
+  }
+
   // ─── Subscription ─────────────────────────────────────────────────────────────
 
   /**
