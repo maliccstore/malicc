@@ -1,9 +1,10 @@
-import { Resolver, Mutation, Arg, Ctx, Subscription, Root } from "type-graphql";
+import { Resolver, Mutation, Arg, Ctx, Subscription, Root, Query } from "type-graphql";
 import { Service } from "typedi";
 import { TrackEventInput } from "../inputs/analytics.inputs";
 import { AnalyticsService } from "../../../service/analytics.service";
 import { LiveAnalyticsPayload } from "../schemas/analytics.schema";
 import { pubsub, LIVE_ANALYTICS_TOPIC } from "../../../realtime/pubsub";
+import { AnalyticsOverview, FunnelStep, ProductAnalytics } from "../schemas/analytics.schema";
 
 @Service()
 @Resolver()
@@ -32,6 +33,24 @@ export class AnalyticsResolver {
 
     return AnalyticsService.identify(sessionId, userId);
   }
+
+  // ─── Query ────────────────────────────────────────────────────────────────
+
+  @Query(() => AnalyticsOverview)
+  async analyticsOverview() {
+    return AnalyticsService.getOverview();
+  }
+
+  @Query(() => [FunnelStep])
+  async analyticsFunnel() {
+    return AnalyticsService.getFunnel();
+  }
+
+  @Query(() => [ProductAnalytics])
+  async analyticsProducts() {
+    return AnalyticsService.getProductAnalytics();
+  }
+
 
   // ─── Subscription ─────────────────────────────────────────────────────────────
 

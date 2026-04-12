@@ -40,3 +40,39 @@ export class LiveAnalyticsPayload {
   @Field()
   updatedAt!: Date;
 }
+
+@ObjectType()
+export class AnalyticsOverview {
+  @Field(() => Int)
+  totalEvents!: number;
+
+  @Field(() => Int)
+  totalUsers!: number;
+
+  @Field(() => Int)
+  totalSessions!: number;
+}
+
+@ObjectType()
+export class FunnelStep {
+  @Field()
+  step!: string;
+
+  @Field(() => Int)
+  count!: number;
+}
+
+@ObjectType()
+export class ProductAnalytics {
+  @Field()
+  productId!: string;
+
+  @Field(() => Int)
+  views!: number;
+
+  @Field(() => Int)
+  addToCart!: number;
+
+  @Field(() => Int)
+  purchases!: number;
+}
