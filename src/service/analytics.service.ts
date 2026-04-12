@@ -4,6 +4,31 @@ import RealtimeService from "./realtime.service";
 import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
 import sequelize from "../config/database";
 import { TriggerService } from "./trigger.service";
+import { ALLOWED_EVENTS, ANALYTICS_EVENTS, AnalyticsEventType } from "../constants/analyticsEvents";
+
+// Rate limiting store
+const rateLimitMap = new Map<
+  string,
+  { count: number; timestamp: number }
+>();
+
+// Duplicate prevention
+const lastEventMap = new Map<string, string>();
+
+// Metadata validation
+function validateMetadata(metadata: any) {
+  if (!metadata) return;
+
+  if (typeof metadata !== "object") {
+    throw new Error("Invalid metadata format");
+  }
+
+  const size = JSON.stringify(metadata).length;
+
+  if (size > 5000) {
+    throw new Error("Metadata too large");
+  }
+}
 
 export class AnalyticsService {
   // Track event and update real-time stats
@@ -12,8 +37,45 @@ export class AnalyticsService {
     context: any,
   ): Promise<boolean> {
     try {
+      // Rate limit key
+      const key =
+        input.sessionId || context?.req?.ip || context?.ip || "anonymous";
+
+      const now = Date.now();
+
+      // RATE LIMIT (100 events/min per key)
+      const limit = rateLimitMap.get(key);
+
+      if (limit) {
+        if (now - limit.timestamp > 60 * 1000) {
+          rateLimitMap.set(key, { count: 1, timestamp: now });
+        } else {
+          if (limit.count >= 100) {
+            throw new Error("Too many requests");
+          }
+          limit.count++;
+        }
+      } else {
+        rateLimitMap.set(key, { count: 1, timestamp: now });
+      }
+
       // 1. Normalize event name
-      const normalizedEvent = input.event.trim().toUpperCase();
+      const normalizedEvent = input.event.trim().toUpperCase() as AnalyticsEventType;
+
+      // Validate event
+      if (!ALLOWED_EVENTS.has(normalizedEvent)) {
+        throw new Error("Invalid event type");
+      }
+
+      // Validate metadata
+      validateMetadata(input.metadata);
+
+      // Prevent duplicate spam (same event back-to-back)
+      const lastEvent = lastEventMap.get(input.sessionId);
+      if (lastEvent === normalizedEvent) {
+        return true;
+      }
+      lastEventMap.set(input.sessionId, normalizedEvent);
 
       // 2. Attach userId from context
       const userId = context?.user?.id || input.userId || null;
@@ -29,21 +91,26 @@ export class AnalyticsService {
       // 4. Update real-time stats
       RealtimeService.processEvent(normalizedEvent, input.sessionId);
 
+      // validation
+      if (!ALLOWED_EVENTS.has(normalizedEvent)) {
+        throw new Error("Invalid event type");
+      }
+
       // 5. Trigger engine
       switch (normalizedEvent) {
-        case "ADD_TO_CART":
+        case ANALYTICS_EVENTS.ADD_TO_CART:
           TriggerService.handleCartActivity(input.sessionId);
           break;
 
-        case "CHECKOUT_STARTED":
+        case ANALYTICS_EVENTS.CHECKOUT_STARTED:
           TriggerService.handleCheckoutActivity(input.sessionId);
           break;
 
-        case "PAYMENT_FAILED":
+        case ANALYTICS_EVENTS.PAYMENT_FAILED:
           TriggerService.recordPaymentFailure();
           break;
 
-        case "PAYMENT_SUCCESS":
+        case ANALYTICS_EVENTS.PAYMENT_SUCCESS:
           // optional: clear timers later
           break;
       }
