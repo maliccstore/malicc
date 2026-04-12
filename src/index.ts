@@ -32,6 +32,12 @@ import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
+// WebSocket subscription support
+import { execute, subscribe } from "graphql";
+import { WebSocketServer } from "ws";
+import { makeServer } from "graphql-ws";
+const { useServer } = require("graphql-ws/use/ws");
+import { pubsub } from "./realtime/pubsub";
 
 async function bootstrap() {
   dotenv.config();
@@ -60,9 +66,11 @@ async function bootstrap() {
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
     container: Container,
+    // Provide the pubsub engine for subscriptions
+    pubSub: pubsub as any,
   });
 
-  // 2. Create Apollo Server
+  // 2. Create Apollo Server (HTTP only — subscriptions handled via WS below)
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
@@ -134,13 +142,11 @@ async function bootstrap() {
   );
 
   // GraphQL endpoint
-  // GraphQL endpoint
   app.use(
     "/graphql",
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req, res }) => {
-        // Your existing token logic
         const token = getTokenFromRequest(req);
         let user = null;
 
@@ -148,15 +154,12 @@ async function bootstrap() {
           try {
             const payload = verifyToken(token);
             user = payload;
-            // Attach user to request for context
             (req as any).user = user;
           } catch (error) {
-            // Token is invalid, proceed without user
             console.log("Invalid token:", error);
           }
         }
 
-        // Use the createContext function
         return createContext({ req, res });
       },
     }),
@@ -181,20 +184,42 @@ async function bootstrap() {
     });
   });
 
-  const server = app.listen(port, () => {
+  // ─── Start HTTP Server ─────────────────────────────────────────────────────
+  const httpServer = app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`🌐 CORS enabled for: ${allowedOrigins.join(", ")}`);
     console.log(`📊 Health check: http://localhost:${port}/health`);
     console.log(`🧪 Test CORS: http://localhost:${port}/test-cors`);
   });
 
-  server.on("error", (error) => {
+  // ─── WebSocket Subscription Server ────────────────────────────────────────
+  // Subscriptions are served on the same port as HTTP, at ws://<host>/graphql
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: "/graphql",
+  });
+
+  // Attach graphql-ws to the WS server
+  useServer(
+    {
+      schema,
+      execute,
+      subscribe,
+    },
+    wsServer,
+  );
+
+  console.log(
+    `🔌 WebSocket subscription server ready at ws://localhost:${port}/graphql`,
+  );
+
+  httpServer.on("error", (error) => {
     console.error("Server error:", error);
     process.exit(1);
   });
 
-  process.on("SIGTERM", () => {
-    server.close(() => {
+  process.on("SIGTERM", async () => {
+    httpServer.close(() => {
       console.log("Server closed");
       process.exit(0);
     });
