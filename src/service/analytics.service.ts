@@ -77,8 +77,8 @@ export class AnalyticsService {
 
   // Get funnel analytics
   static async getFunnel() {
-    const result = await sequelize.query(`
-    SELECT event AS step, COUNT(*) as count
+  const result: any[] = await sequelize.query(`
+    SELECT event, COUNT(DISTINCT session_id) as count
     FROM events
     WHERE event IN (
       'PRODUCT_VIEW',
@@ -89,8 +89,49 @@ export class AnalyticsService {
     GROUP BY event
   `, { type: "SELECT" });
 
-    return result;
+  // Convert to map
+  const map: Record<string, number> = {};
+
+  result.forEach((row) => {
+    map[row.event] = Number(row.count);
+  });
+
+  const steps = [
+    "PRODUCT_VIEW",
+    "ADD_TO_CART",
+    "CHECKOUT_STARTED",
+    "PAYMENT_SUCCESS",
+  ];
+
+  const funnel = [];
+
+  for (let i = 0; i < steps.length; i++) {
+    const current = steps[i];
+    const next = steps[i + 1];
+
+    const currentCount = map[current] || 0;
+    const nextCount = map[next] || 0;
+
+    const dropOff = i === steps.length - 1
+      ? 0
+      : currentCount - nextCount;
+
+    const conversionRate = i === 0
+      ? 100
+      : currentCount
+        ? (currentCount / (map[steps[0]] || 1)) * 100
+        : 0;
+
+    funnel.push({
+      step: current,
+      count: currentCount,
+      dropOff,
+      conversionRate: Number(conversionRate.toFixed(2)),
+    });
   }
+
+  return funnel;
+}
 
   // Get product analytics
   static async getProductAnalytics() {

@@ -60,6 +60,12 @@ export class FunnelStep {
 
   @Field(() => Int)
   count!: number;
+
+  @Field(() => Number)
+  dropOff!: number;
+
+  @Field(() => Number)
+  conversionRate!: number;
 }
 
 @ObjectType()
