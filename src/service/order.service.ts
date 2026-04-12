@@ -269,12 +269,28 @@ export class OrderService {
       await this.restoreOrderInventory(order.id);
     }
 
+    /**
+     * 🛒 Re-deduct Inventory on Retry Payment when:
+     * - Status transitions TO PAID
+     * - Previous status was FAILED or CANCELLED (i.e. a retry scenario)
+     * Stock was already restored when the order failed, so we must
+     * re-deduct it now that payment is confirmed.
+     */
+    if (
+      status === OrderStatus.PAID &&
+      (previousStatus === OrderStatus.FAILED ||
+        previousStatus === OrderStatus.CANCELLED)
+    ) {
+      await this.deductOrderInventory(order.id);
+    }
+
     return order;
   }
 
   /**
    * ♻️ Restore Inventory
-   * Returns items back to stock after a failed or cancelled order
+   * Returns items back to stock after a failed or cancelled order.
+   * Restores both `quantity` and `reservedQuantity` to keep availableQuantity accurate.
    */
   async restoreOrderInventory(orderId: string): Promise<void> {
     const order = await Order.findByPk(orderId, {
@@ -293,12 +309,13 @@ export class OrderService {
         });
 
         if (inventory) {
-          // Add back to total quantity
-          // Since createOrderFromCart decremented both quantity and reservedQuantity,
-          // we only need to add back to quantity to make it "available" again.
+          // createOrderFromCart decremented both `quantity` AND `reservedQuantity`.
+          // We must restore both so that availableQuantity (quantity - reservedQuantity)
+          // reflects the correct available stock.
           await inventory.update(
             {
               quantity: inventory.quantity + item.quantity,
+              reservedQuantity: Math.max(0, inventory.reservedQuantity + item.quantity),
             },
             { transaction },
           );
@@ -309,6 +326,57 @@ export class OrderService {
     } catch (error) {
       await transaction.rollback();
       console.error(`❌ Failed to restore inventory for order ${orderId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 📦 Deduct Inventory
+   * Re-deducts stock for a retried order that has now been paid.
+   * Used when transitioning from FAILED/CANCELLED → PAID (retry scenario).
+   */
+  async deductOrderInventory(orderId: string): Promise<void> {
+    const order = await Order.findByPk(orderId, {
+      include: [OrderItem],
+    });
+
+    if (!order || !order.items) return;
+
+    const transaction = await Order.sequelize!.transaction();
+
+    try {
+      for (const item of order.items) {
+        const inventory = await Inventory.findOne({
+          where: { productId: item.productId },
+          transaction,
+        });
+
+        if (!inventory) {
+          throw new Error(`Inventory not found for product ${item.productId}`);
+        }
+
+        if (inventory.availableQuantity < item.quantity) {
+          throw new Error(
+            `Insufficient stock for product "${item.productName}". ` +
+            `Available: ${inventory.availableQuantity}, required: ${item.quantity}.`
+          );
+        }
+
+        // Mirror the same deduction done in createOrderFromCart
+        await inventory.update(
+          {
+            quantity: inventory.quantity - item.quantity,
+            reservedQuantity: Math.max(0, inventory.reservedQuantity - item.quantity),
+          },
+          { transaction },
+        );
+      }
+
+      await transaction.commit();
+      console.log(`✅ Re-deducted inventory for retried order ${orderId}`);
+    } catch (error) {
+      await transaction.rollback();
+      console.error(`❌ Failed to deduct inventory for order ${orderId}:`, error);
       throw error;
     }
   }
