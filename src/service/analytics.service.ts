@@ -3,6 +3,7 @@ import { TrackEventPayload } from "../types/analytics.types";
 import RealtimeService from "./realtime.service";
 import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
 import sequelize from "../config/database";
+import { TriggerService } from "./trigger.service";
 
 export class AnalyticsService {
   // Track event and update real-time stats
@@ -10,33 +11,65 @@ export class AnalyticsService {
     input: TrackEventPayload,
     context: any,
   ): Promise<boolean> {
-    // 1. Normalize event name
-    const normalizedEvent = input.event.trim().toUpperCase();
+    try {
+      // 1. Normalize event name
+      const normalizedEvent = input.event.trim().toUpperCase();
 
-    // 2. Attach userId from context (if available)
-    const userId = context?.user?.id || input.userId || null;
+      // 2. Attach userId from context
+      const userId = context?.user?.id || input.userId || null;
 
-    // 3. Save event
-    await Event.create({
-      event: normalizedEvent,
-      session_id: input.sessionId,
-      user_id: userId,
-      metadata: input.metadata || {},
-    });
+      // 3. Save event (SOURCE OF TRUTH)
+      await Event.create({
+        event: normalizedEvent,
+        session_id: input.sessionId,
+        user_id: userId,
+        metadata: input.metadata || {},
+      });
 
-    // 4. Update real-time stats
-    RealtimeService.processEvent(normalizedEvent, input.sessionId);
+      // 4. Update real-time stats
+      RealtimeService.processEvent(normalizedEvent, input.sessionId);
 
-    // 5. Publish updated stats to all active GraphQL subscribers
-    const stats = RealtimeService.getStats();
-    await pubsub.publish(LIVE_ANALYTICS_TOPIC, {
-      liveAnalytics: {
-        ...stats,
-        updatedAt: new Date(),
-      },
-    });
+      // 5. Trigger engine
+      switch (normalizedEvent) {
+        case "ADD_TO_CART":
+          TriggerService.handleCartActivity(input.sessionId);
+          break;
 
-    return true;
+        case "CHECKOUT_STARTED":
+          TriggerService.handleCheckoutActivity(input.sessionId);
+          break;
+
+        case "PAYMENT_FAILED":
+          TriggerService.recordPaymentFailure();
+          break;
+
+        case "PAYMENT_SUCCESS":
+          // optional: clear timers later
+          break;
+      }
+
+      // 6. Publish live updates
+      const stats = RealtimeService.getStats();
+
+      await pubsub.publish(LIVE_ANALYTICS_TOPIC, {
+        liveAnalytics: {
+          ...stats,
+          updatedAt: new Date(),
+        },
+      });
+
+      return true;
+
+    } catch (error) {
+      console.error("❌ trackEvent failed:", {
+        input,
+        error,
+      });
+
+      // optional: send to logging service later (Sentry, etc.)
+
+      throw new Error("Failed to track event");
+    }
   }
 
   // Identify user with session id
@@ -77,7 +110,7 @@ export class AnalyticsService {
 
   // Get funnel analytics
   static async getFunnel() {
-  const result: any[] = await sequelize.query(`
+    const result: any[] = await sequelize.query(`
     SELECT event, COUNT(DISTINCT session_id) as count
     FROM events
     WHERE event IN (
@@ -89,49 +122,49 @@ export class AnalyticsService {
     GROUP BY event
   `, { type: "SELECT" });
 
-  // Convert to map
-  const map: Record<string, number> = {};
+    // Convert to map
+    const map: Record<string, number> = {};
 
-  result.forEach((row) => {
-    map[row.event] = Number(row.count);
-  });
-
-  const steps = [
-    "PRODUCT_VIEW",
-    "ADD_TO_CART",
-    "CHECKOUT_STARTED",
-    "PAYMENT_SUCCESS",
-  ];
-
-  const funnel = [];
-
-  for (let i = 0; i < steps.length; i++) {
-    const current = steps[i];
-    const next = steps[i + 1];
-
-    const currentCount = map[current] || 0;
-    const nextCount = map[next] || 0;
-
-    const dropOff = i === steps.length - 1
-      ? 0
-      : currentCount - nextCount;
-
-    const conversionRate = i === 0
-      ? 100
-      : currentCount
-        ? (currentCount / (map[steps[0]] || 1)) * 100
-        : 0;
-
-    funnel.push({
-      step: current,
-      count: currentCount,
-      dropOff,
-      conversionRate: Number(conversionRate.toFixed(2)),
+    result.forEach((row) => {
+      map[row.event] = Number(row.count);
     });
-  }
 
-  return funnel;
-}
+    const steps = [
+      "PRODUCT_VIEW",
+      "ADD_TO_CART",
+      "CHECKOUT_STARTED",
+      "PAYMENT_SUCCESS",
+    ];
+
+    const funnel = [];
+
+    for (let i = 0; i < steps.length; i++) {
+      const current = steps[i];
+      const next = steps[i + 1];
+
+      const currentCount = map[current] || 0;
+      const nextCount = map[next] || 0;
+
+      const dropOff = i === steps.length - 1
+        ? 0
+        : currentCount - nextCount;
+
+      const conversionRate = i === 0
+        ? 100
+        : currentCount
+          ? (currentCount / (map[steps[0]] || 1)) * 100
+          : 0;
+
+      funnel.push({
+        step: current,
+        count: currentCount,
+        dropOff,
+        conversionRate: Number(conversionRate.toFixed(2)),
+      });
+    }
+
+    return funnel;
+  }
 
   // Get product analytics
   static async getProductAnalytics() {
