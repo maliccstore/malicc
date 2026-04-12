@@ -1,6 +1,7 @@
 import { Event } from "../models/Event";
 import { TrackEventPayload } from "../types/analytics.types";
 import RealtimeService from "./realtime.service";
+import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
 
 export class AnalyticsService {
   static async trackEvent(
@@ -23,6 +24,15 @@ export class AnalyticsService {
 
     // 4. Update real-time stats
     RealtimeService.processEvent(normalizedEvent, input.sessionId);
+
+    // 5. Publish updated stats to all active GraphQL subscribers
+    const stats = RealtimeService.getStats();
+    await pubsub.publish(LIVE_ANALYTICS_TOPIC, {
+      liveAnalytics: {
+        ...stats,
+        updatedAt: new Date(),
+      },
+    });
 
     return true;
   }
