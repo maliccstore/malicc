@@ -31,7 +31,7 @@ export class AnalyticsResolver {
       throw new Error("User not authenticated");
     }
 
-    return AnalyticsService.identify(sessionId, userId);
+    return AnalyticsService.identify(sessionId, userId, context?.user?.role);
   }
 
   // ─── Query ────────────────────────────────────────────────────────────────

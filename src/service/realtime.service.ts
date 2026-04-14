@@ -12,9 +12,7 @@ class RealtimeService {
         break;
 
       case "SESSION_END":
-        this.activeUsers.delete(sessionId);
-        this.cartsActive.delete(sessionId);
-        this.checkoutActive.delete(sessionId);
+        this.removeSession(sessionId);
         break;
 
       case "ADD_TO_CART":
@@ -39,6 +37,14 @@ class RealtimeService {
     }
 
     console.log("Realtime Stats:", this.getStats());
+  }
+
+  // Remove a session from all active tracking sets
+  static removeSession(sessionId: string) {
+    this.activeUsers.delete(sessionId);
+    this.cartsActive.delete(sessionId);
+    this.checkoutActive.delete(sessionId);
+    console.log(`Session ${sessionId} removed from tracking`);
   }
 
   // Get current stats of active sessions

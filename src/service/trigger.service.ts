@@ -1,6 +1,7 @@
 export class TriggerService {
     private static cartTimers = new Map<string, NodeJS.Timeout>();
-    private static checkoutTimers = new Map<string, NodeJS.Timeout>();
+    private static checkoutTimers = new Map<string, NodeJS.Timeout>();  
+    private static paymentTimers = new Map<string, NodeJS.Timeout>();
 
     private static paymentFailures: number[] = [];
 
@@ -36,6 +37,24 @@ export class TriggerService {
         }, 5 * 60 * 1000);
 
         this.checkoutTimers.set(sessionId, timer);
+    }
+
+    // Payment initiation
+    static handlePaymentInitiation(sessionId: string) {
+        // clear old timer
+        if (this.paymentTimers.has(sessionId)) {
+            clearTimeout(this.paymentTimers.get(sessionId)!);
+        }
+
+        // start new timer (e.g. 5 min)
+        const timer = setTimeout(() => {
+            console.log("⚠️ Payment Abandoned:", sessionId);
+
+            this.emit("PAYMENT_ABANDONED", { sessionId });
+            this.paymentTimers.delete(sessionId);
+        }, 5 * 60 * 1000);
+
+        this.paymentTimers.set(sessionId, timer);
     }
 
     // Payment failure spikes

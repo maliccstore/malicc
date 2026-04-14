@@ -5,6 +5,7 @@ import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
 import sequelize from "../config/database";
 import { TriggerService } from "./trigger.service";
 import { ALLOWED_EVENTS, ANALYTICS_EVENTS, AnalyticsEventType } from "../constants/analyticsEvents";
+import { UserRole } from "../enums/UserRole";
 
 // Rate limiting store
 const rateLimitMap = new Map<
@@ -88,8 +89,11 @@ export class AnalyticsService {
         metadata: input.metadata || {},
       });
 
-      // 4. Update real-time stats
-      RealtimeService.processEvent(normalizedEvent, input.sessionId);
+      // 4. Update real-time stats (ONLY for guests and customers)
+      const userRole = context?.user?.role || "guest";
+      if (userRole !== UserRole.ADMIN && userRole !== UserRole.SUPERADMIN) {
+        RealtimeService.processEvent(normalizedEvent, input.sessionId);
+      }
 
       // validation
       if (!ALLOWED_EVENTS.has(normalizedEvent)) {
@@ -104,6 +108,10 @@ export class AnalyticsService {
 
         case ANALYTICS_EVENTS.CHECKOUT_STARTED:
           TriggerService.handleCheckoutActivity(input.sessionId);
+          break;
+
+        case ANALYTICS_EVENTS.PAYMENT_INITIATED:
+          TriggerService.handlePaymentInitiation(input.sessionId);
           break;
 
         case ANALYTICS_EVENTS.PAYMENT_FAILED:
@@ -142,7 +150,8 @@ export class AnalyticsService {
   // Identify user with session id
   static async identify(
     sessionId: string,
-    userId: string | number
+    userId: string | number,
+    userRole?: string
   ): Promise<boolean> {
 
     if (!userId) {
@@ -158,6 +167,11 @@ export class AnalyticsService {
         },
       }
     );
+
+    // If identified user is an admin, remove session from real-time tracking
+    if (userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN) {
+      RealtimeService.removeSession(sessionId);
+    }
 
     return true;
   }
