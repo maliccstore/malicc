@@ -28,12 +28,15 @@ class RealtimeService {
         break;
 
       case "CHECKOUT_STARTED":
+        // Transition: Remove from cart and add to checkout
+        this.cartsActive.delete(sessionId);
         this.checkoutActive.add(sessionId);
         break;
 
-      case "CHECKOUT_COMPLETED":
+      case "PAYMENT_SUCCESS":
+      case "PAYMENT_FAILED":
+        // End of checkout funnel
         this.checkoutActive.delete(sessionId);
-        this.cartsActive.delete(sessionId);
         break;
 
       default:
