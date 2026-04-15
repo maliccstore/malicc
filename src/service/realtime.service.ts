@@ -5,7 +5,7 @@ class RealtimeService {
   private static checkoutActive = new Set<string>();
 
   // Process incoming events to update the state of active sessions
-  static processEvent(event: string, sessionId: string) {
+  static processEvent(event: string, sessionId: string, metadata?: any) {
     switch (event) {
       case "SESSION_START":
         this.activeUsers.add(sessionId);
@@ -16,11 +16,15 @@ class RealtimeService {
         break;
 
       case "ADD_TO_CART":
+        // Add session to active carts (duplicates ignored by Set)
         this.cartsActive.add(sessionId);
         break;
 
       case "REMOVE_FROM_CART":
-        this.cartsActive.delete(sessionId);
+        // Only remove session from active carts if it's completely empty
+        if (metadata?.isEmpty) {
+          this.cartsActive.delete(sessionId);
+        }
         break;
 
       case "CHECKOUT_STARTED":

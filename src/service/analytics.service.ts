@@ -92,7 +92,7 @@ export class AnalyticsService {
       // 4. Update real-time stats (ONLY for guests and customers)
       const userRole = context?.user?.role || "guest";
       if (userRole !== UserRole.ADMIN && userRole !== UserRole.SUPERADMIN) {
-        RealtimeService.processEvent(normalizedEvent, input.sessionId);
+        RealtimeService.processEvent(normalizedEvent, input.sessionId, input.metadata);
       }
 
       // validation
