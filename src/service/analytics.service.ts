@@ -61,6 +61,31 @@ function validateDiscoveryPayload(event: string, metadata: any) {
   }
 }
 
+// Specific validation for coupon events
+function validateCouponPayload(event: string, metadata: any) {
+  if (!metadata) {
+    throw new Error(`Metadata is required for event: ${event}`);
+  }
+
+  if (typeof metadata.couponCode !== "string" || metadata.couponCode.trim() === "") {
+    throw new Error("couponCode must be a non-empty string");
+  }
+
+  switch (event) {
+    case ANALYTICS_EVENTS.COUPON_APPLIED:
+      if (typeof metadata.discountAmount !== "number") {
+        throw new Error("discountAmount must be a number");
+      }
+      break;
+
+    case ANALYTICS_EVENTS.COUPON_FAILED:
+      if (typeof metadata.reason !== "string" || metadata.reason.trim() === "") {
+        throw new Error("reason must be a non-empty string");
+      }
+      break;
+  }
+}
+
 export class AnalyticsService {
   // Track event and update real-time stats
   static async trackEvent(
@@ -110,6 +135,16 @@ export class AnalyticsService {
         ].includes(normalizedEvent as any)
       ) {
         validateDiscoveryPayload(normalizedEvent, input.metadata);
+      }
+
+      // Validate coupon payload
+      if (
+        [
+          ANALYTICS_EVENTS.COUPON_APPLIED,
+          ANALYTICS_EVENTS.COUPON_FAILED,
+        ].includes(normalizedEvent as any)
+      ) {
+        validateCouponPayload(normalizedEvent, input.metadata);
       }
 
       // Prevent duplicate spam (same event back-to-back)

@@ -50,6 +50,13 @@ class EventProcessorService {
         console.log(`[Discovery Event] ${event} for session ${sessionId}`);
         break;
 
+      case "COUPON_APPLIED":
+      case "COUPON_FAILED":
+        // Requirements: ensure session is added to checkoutActive set
+        this.checkoutActive.add(sessionId);
+        console.log(`[Coupon Event] ${event} for session ${sessionId}`);
+        break;
+
       default:
         break;
     }
