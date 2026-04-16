@@ -73,6 +73,9 @@ export class ProductAnalytics {
   @Field()
   productId!: string;
 
+  @Field({ nullable: true })
+  productName?: string;
+
   @Field(() => Int)
   views!: number;
 

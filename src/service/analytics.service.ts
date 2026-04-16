@@ -326,16 +326,39 @@ export class AnalyticsService {
   // Get product analytics
   static async getProductAnalytics() {
     const result = await sequelize.query(`
-    SELECT
-      metadata->>'productId' AS "productId",
-
-      COUNT(*) FILTER (WHERE event = 'PRODUCT_VIEW') AS "views",
-      COUNT(*) FILTER (WHERE event = 'ADD_TO_CART') AS "addToCart",
-      COUNT(*) FILTER (WHERE event = 'PAYMENT_SUCCESS') AS "purchases"
-
-    FROM events
-    WHERE metadata->>'productId' IS NOT NULL
-    GROUP BY metadata->>'productId'
+    SELECT 
+      sub."productId",
+      p.name AS "productName",
+      CAST(SUM(sub.views) AS INTEGER) AS "views",
+      CAST(SUM(sub."addToCart") AS INTEGER) AS "addToCart",
+      CAST(SUM(sub.purchases) AS INTEGER) AS "purchases"
+    FROM (
+      -- Views and Add to Cart from events metadata
+      SELECT 
+        metadata->>'productId' AS "productId",
+        COUNT(*) FILTER (WHERE event = 'PRODUCT_VIEW') AS views,
+        COUNT(*) FILTER (WHERE event = 'ADD_TO_CART') AS "addToCart",
+        0 AS purchases
+      FROM events
+      WHERE metadata->>'productId' IS NOT NULL
+      GROUP BY metadata->>'productId'
+      
+      UNION ALL
+      
+      -- Purchases attributed via order items (mapping orderId from PAYMENT_SUCCESS)
+      SELECT 
+        oi."productId"::text AS "productId",
+        0 AS views,
+        0 AS "addToCart",
+        COUNT(*) AS purchases
+      FROM events e
+      JOIN order_items oi ON oi."orderId" = (CASE WHEN (e.metadata->>'orderId') ~ '^[0-9a-fA-F-]{36}$' THEN e.metadata->>'orderId' ELSE NULL END)::uuid
+      WHERE e.event = 'PAYMENT_SUCCESS'
+      GROUP BY oi."productId"
+    ) sub
+    LEFT JOIN products p ON p.id = (CASE WHEN sub."productId" ~ '^[0-9a-fA-F-]{36}$' THEN sub."productId" ELSE NULL END)::uuid
+    GROUP BY sub."productId", p.name
+    ORDER BY views DESC
   `, { type: "SELECT" });
 
     return result;
