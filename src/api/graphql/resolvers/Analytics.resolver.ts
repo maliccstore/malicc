@@ -61,7 +61,7 @@ export class AnalyticsResolver {
    * Example client operation:
    *   subscription {
    *     liveAnalytics {
-   *       activeUsers
+   *       activeSessions
    *       cartsActive
    *       checkoutActive
    *       updatedAt

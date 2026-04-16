@@ -1,10 +1,10 @@
 import { Event } from "../models/Event";
 import { TrackEventPayload } from "../types/analytics.types";
-import RealtimeService from "./realtime.service";
+import EventProcessorService from "./event-processor.service";
 import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
 import sequelize from "../config/database";
 import { TriggerService } from "./trigger.service";
-import { ALLOWED_EVENTS, ANALYTICS_EVENTS, AnalyticsEventType } from "../constants/analyticsEvents";
+import { ALLOWED_EVENTS, ANALYTICS_EVENTS, AnalyticsEventType } from "../constants/event-constants";
 import { UserRole } from "../enums/UserRole";
 
 // Rate limiting store
@@ -28,6 +28,36 @@ function validateMetadata(metadata: any) {
 
   if (size > 5000) {
     throw new Error("Metadata too large");
+  }
+}
+
+// Specific validation for discovery events
+function validateDiscoveryPayload(event: string, metadata: any) {
+  if (!metadata) {
+    throw new Error(`Metadata is required for event: ${event}`);
+  }
+
+  switch (event) {
+    case ANALYTICS_EVENTS.PRODUCT_SEARCH:
+      if (typeof metadata.searchQuery !== "string" || metadata.searchQuery.trim() === "") {
+        throw new Error("Search query must be a non-empty string");
+      }
+      if (typeof metadata.resultCount !== "number") {
+        throw new Error("resultCount must be a number");
+      }
+      break;
+
+    case ANALYTICS_EVENTS.PRODUCT_FILTER:
+      if (typeof metadata.appliedFilters !== "object" || metadata.appliedFilters === null) {
+        throw new Error("appliedFilters must be an object");
+      }
+      break;
+
+    case ANALYTICS_EVENTS.PRODUCT_SORT:
+      if (typeof metadata.sortField !== "string" || metadata.sortField.trim() === "") {
+        throw new Error("sortField must be a non-empty string");
+      }
+      break;
   }
 }
 
@@ -71,6 +101,17 @@ export class AnalyticsService {
       // Validate metadata
       validateMetadata(input.metadata);
 
+      // Validate discovery payload
+      if (
+        [
+          ANALYTICS_EVENTS.PRODUCT_SEARCH,
+          ANALYTICS_EVENTS.PRODUCT_FILTER,
+          ANALYTICS_EVENTS.PRODUCT_SORT,
+        ].includes(normalizedEvent as any)
+      ) {
+        validateDiscoveryPayload(normalizedEvent, input.metadata);
+      }
+
       // Prevent duplicate spam (same event back-to-back)
       const lastEvent = lastEventMap.get(input.sessionId);
       if (lastEvent === normalizedEvent) {
@@ -92,7 +133,7 @@ export class AnalyticsService {
       // 4. Update real-time stats (ONLY for guests and customers)
       const userRole = context?.user?.role || "guest";
       if (userRole !== UserRole.ADMIN && userRole !== UserRole.SUPERADMIN) {
-        RealtimeService.processEvent(normalizedEvent, input.sessionId, input.metadata);
+        EventProcessorService.handleDiscoveryEvent(normalizedEvent, input.sessionId, input.metadata);
       }
 
       // validation
@@ -124,7 +165,7 @@ export class AnalyticsService {
       }
 
       // 6. Publish live updates
-      const stats = RealtimeService.getStats();
+      const stats = EventProcessorService.getStats();
 
       await pubsub.publish(LIVE_ANALYTICS_TOPIC, {
         liveAnalytics: {
@@ -170,7 +211,7 @@ export class AnalyticsService {
 
     // If identified user is an admin, remove session from real-time tracking
     if (userRole === UserRole.ADMIN || userRole === UserRole.SUPERADMIN) {
-      RealtimeService.removeSession(sessionId);
+      EventProcessorService.removeSession(sessionId);
     }
 
     return true;

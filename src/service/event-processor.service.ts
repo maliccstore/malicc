@@ -1,14 +1,19 @@
-class RealtimeService {
+class EventProcessorService {
   // In-memory tracking of active sessions and their states
-  private static activeUsers = new Set<string>();
+  private static activeSessions = new Set<string>();
   private static cartsActive = new Set<string>();
   private static checkoutActive = new Set<string>();
 
   // Process incoming events to update the state of active sessions
-  static processEvent(event: string, sessionId: string, metadata?: any) {
+  static handleDiscoveryEvent(event: string, sessionId: string, metadata?: any) {
+    // Ensure session is tracked as active
+    if (!this.activeSessions.has(sessionId) && event !== "SESSION_END") {
+      this.activeSessions.add(sessionId);
+    }
+
     switch (event) {
       case "SESSION_START":
-        this.activeUsers.add(sessionId);
+        // Already handled by session tracking check above
         break;
 
       case "SESSION_END":
@@ -39,6 +44,12 @@ class RealtimeService {
         this.checkoutActive.delete(sessionId);
         break;
 
+      case "PRODUCT_SEARCH":
+      case "PRODUCT_FILTER":
+      case "PRODUCT_SORT":
+        console.log(`[Discovery Event] ${event} for session ${sessionId}`);
+        break;
+
       default:
         break;
     }
@@ -48,7 +59,7 @@ class RealtimeService {
 
   // Remove a session from all active tracking sets
   static removeSession(sessionId: string) {
-    this.activeUsers.delete(sessionId);
+    this.activeSessions.delete(sessionId);
     this.cartsActive.delete(sessionId);
     this.checkoutActive.delete(sessionId);
     console.log(`Session ${sessionId} removed from tracking`);
@@ -57,11 +68,11 @@ class RealtimeService {
   // Get current stats of active sessions
   static getStats() {
     return {
-      activeUsers: this.activeUsers.size,
+      activeSessions: this.activeSessions.size,
       cartsActive: this.cartsActive.size,
       checkoutActive: this.checkoutActive.size,
     };
   }
 }
 
-export default RealtimeService;
+export default EventProcessorService;

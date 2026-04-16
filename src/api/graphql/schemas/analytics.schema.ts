@@ -24,12 +24,12 @@ export class Event {
 
 /**
  * Payload pushed to subscribers whenever an analytics event is ingested.
- * Mirrors the shape returned by RealtimeService.getStats().
+ * Mirrors the shape returned by EventProcessorService.getStats().
  */
 @ObjectType()
 export class LiveAnalyticsPayload {
   @Field(() => Int)
-  activeUsers!: number;
+  activeSessions!: number;
 
   @Field(() => Int)
   cartsActive!: number;
