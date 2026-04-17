@@ -37,6 +37,9 @@ export class LiveAnalyticsPayload {
   @Field(() => Int)
   checkoutActive!: number;
 
+  @Field(() => Int)
+  todayVisitors!: number;
+
   @Field()
   updatedAt!: Date;
 }

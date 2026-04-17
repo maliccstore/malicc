@@ -3,6 +3,7 @@ class EventProcessorService {
   private static activeSessions = new Set<string>();
   private static cartsActive = new Set<string>();
   private static checkoutActive = new Set<string>();
+  private static todayVisitorsCount = 0;
 
   // Process incoming events to update the state of active sessions
   static handleDiscoveryEvent(event: string, sessionId: string, metadata?: any) {
@@ -63,6 +64,10 @@ class EventProcessorService {
 
     console.log("Realtime Stats:", this.getStats());
   }
+ 
+  static setTodayVisitors(count: number) {
+    this.todayVisitorsCount = count;
+  }
 
   // Remove a session from all active tracking sets
   static removeSession(sessionId: string) {
@@ -78,6 +83,7 @@ class EventProcessorService {
       activeSessions: this.activeSessions.size,
       cartsActive: this.cartsActive.size,
       checkoutActive: this.checkoutActive.size,
+      todayVisitors: this.todayVisitorsCount,
     };
   }
 }

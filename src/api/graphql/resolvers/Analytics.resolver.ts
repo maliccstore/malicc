@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Arg, Ctx, Subscription, Root, Query } from "type-graphql";
+import { Resolver, Mutation, Arg, Ctx, Subscription, Root, Query, Int } from "type-graphql";
 import { Service } from "typedi";
 import { TrackEventInput } from "../inputs/analytics.inputs";
 import { AnalyticsService } from "../../../service/analytics.service";
@@ -49,6 +49,11 @@ export class AnalyticsResolver {
   @Query(() => [ProductAnalytics])
   async analyticsProducts() {
     return AnalyticsService.getProductAnalytics();
+  }
+
+  @Query(() => Int)
+  async todayVisitors() {
+    return AnalyticsService.getTodayVisitors();
   }
 
 

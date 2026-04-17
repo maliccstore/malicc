@@ -178,6 +178,12 @@ export class AnalyticsService {
 
       // 5. Trigger engine
       switch (normalizedEvent) {
+        case ANALYTICS_EVENTS.SESSION_START:
+          // Update today's visitors count in real-time tracking
+          const todayCount = await AnalyticsService.getTodayVisitors();
+          EventProcessorService.setTodayVisitors(todayCount);
+          break;
+
         case ANALYTICS_EVENTS.ADD_TO_CART:
           TriggerService.handleCartActivity(input.sessionId);
           break;
@@ -362,5 +368,16 @@ export class AnalyticsService {
   `, { type: "SELECT" });
 
     return result;
+  }
+
+  // Get current today unique visitors
+  static async getTodayVisitors(): Promise<number> {
+    const result: any = await sequelize.query(`
+      SELECT COUNT(DISTINCT session_id) AS count
+      FROM events
+      WHERE created_at >= CURRENT_DATE
+    `, { type: "SELECT" });
+
+    return Number(result[0]?.count || 0);
   }
 }
