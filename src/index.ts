@@ -82,18 +82,7 @@ async function bootstrap() {
   // cookie-parser
   app.use(cookieParser());
   // ✅ CORS Configuration - Handled in Node.js
-  const allowedOrigins = [
-    "https://malicc.store",
-    "https://www.malicc.store",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "https://studio.apollographql.com",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8000",
-  ];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
   const corsOptions = {
     origin: function (
