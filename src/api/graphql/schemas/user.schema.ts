@@ -98,3 +98,21 @@ export class LoginOTPInput {
   @Field()
   phoneNumber: string;
 }
+
+@InputType()
+export class LoginPasswordInput {
+  @Field()
+  phoneNumber: string;
+
+  @Field()
+  password: string;
+}
+
+@InputType()
+export class SignupWithPasswordInput {
+  @Field()
+  phoneNumber: string;
+
+  @Field()
+  password: string;
+}

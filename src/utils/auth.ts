@@ -8,6 +8,26 @@ import { Request } from "express";
 import { UserRole } from "@/enums/UserRole";
 import { ForbiddenError } from "../errors";
 import { log } from "node:console";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+export async function comparePassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
+  const [hashedPassword, salt] = hash.split(".");
+  const hashedPasswordBuf = Buffer.from(hashedPassword, "hex");
+  const suppliedPasswordBuf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+}
 
 export function generateJWT(user: User) {
   return jwt.sign(
@@ -18,7 +38,7 @@ export function generateJWT(user: User) {
       role: user.role,
     },
     process.env.JWT_SECRET!,
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 }
 
@@ -40,7 +60,7 @@ export function verifyToken(token: string): AuthPayload {
 
 export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
   { context },
-  roles // Typescript will now enforce that these are valid UserRole values
+  roles, // Typescript will now enforce that these are valid UserRole values
 ) => {
   // 1. Check Authentication (is there a user?)
   if (!context.user) {
@@ -56,7 +76,7 @@ export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
       // User is authenticated but doesn't have the required role
       // throw new ForbiddenError("Not authorized");
       throw new ForbiddenError(
-        "You do not have permission to perform this action."
+        "You do not have permission to perform this action.",
       );
     }
   }

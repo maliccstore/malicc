@@ -15,7 +15,7 @@ export class VerificationService {
   async sendVerificationCode(
     phoneNumber: string,
     otp: string,
-    otpExpiration: Date
+    otpExpiration: Date,
   ): Promise<boolean> {
     try {
       // Six digit verification code
@@ -26,7 +26,7 @@ export class VerificationService {
       const expiresAt = otpExpiration;
 
       expiresAt.setMinutes(
-        expiresAt.getMinutes() + this.CODE_EXPIRATION_MINUTES
+        expiresAt.getMinutes() + this.CODE_EXPIRATION_MINUTES,
       );
 
       this.verificationCodes.set(phoneNumber, {

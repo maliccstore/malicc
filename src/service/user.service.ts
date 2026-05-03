@@ -2,10 +2,18 @@ import "reflect-metadata";
 // src/index.ts
 import { Service } from "typedi";
 import User from "../models/UserModel";
-import { CreateUserDTO, NewUserType } from "../dtos/CreateUser.dto";
-import { generateOTP, generateOTPExpiration, checkValidOTP } from "../utils/otp";
+import {
+  CreateUserDTO,
+  CreateUserWithPasswordDTO,
+  NewUserType,
+} from "../dtos/CreateUser.dto";
+import {
+  generateOTP,
+  generateOTPExpiration,
+  checkValidOTP,
+} from "../utils/otp";
 import { UserType } from "../types/user";
-
+import { hashPassword, comparePassword } from "../utils/auth";
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User
 
@@ -16,6 +24,33 @@ class UserService {
     return user;
   }
 
+  async createUserWithPassword(userData: CreateUserDTO & { password: string }) {
+    const hashedPassword = await hashPassword(userData.password);
+
+    const user = await User.create({
+      ...userData,
+      password: hashedPassword,
+      isPhoneVerified: true, // since no OTP
+    });
+
+    return user;
+  }
+
+  async loginWithPassword(phoneNumber: string, password: string) {
+    const user = await this.getUserByPhone(phoneNumber);
+
+    if (!user || !user.password) {
+      throw new Error("User not found or password not set");
+    }
+
+    const isValid = await comparePassword(password, user.password);
+
+    if (!isValid) {
+      throw new Error("Invalid credentials");
+    }
+
+    return user;
+  }
   async findUser(id: number): Promise<User | null> {
     return User.findByPk(id);
   }
@@ -104,7 +139,9 @@ class UserService {
     }
 
     // Ensure the new number isn't already taken
-    const conflict = await User.findOne({ where: { phoneNumber: newPhoneNumber } });
+    const conflict = await User.findOne({
+      where: { phoneNumber: newPhoneNumber },
+    });
     if (conflict) {
       throw new Error("Phone number is already in use by another account");
     }
