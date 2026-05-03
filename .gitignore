@@ -9,3 +9,7 @@ eslint.config.mjs
 Dockerfile.prod
 DOCKERFILE
 Dockerfile.dev
+
+# Uploads
+public/uploads/products/*
+!public/uploads/products/.gitkeep

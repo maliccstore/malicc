@@ -11,14 +11,20 @@ import { Product } from "../models/ProductModel";
 import { OrderFilterInput } from "../api/graphql/inputs/OrderInput";
 import { FindOptions } from "sequelize";
 import { FulfillmentStatus } from "../enums/FulfillmentStatus";
+import { CouponService } from "./coupon.service";
+import { Coupon } from "../models/Coupon";
+import User from "../models/UserModel";
 
 @Service()
 export class OrderService {
+  constructor(private readonly couponService: CouponService) {}
+
   async createOrderFromCart(
     userId: number,
     addressId: number,
     paymentMethod: string = "COD",
     sessionId?: string,
+    couponCode?: string,
   ): Promise<Order> {
     // 1. Fetch user's cart and address
     // Priority: Cart with userId, then Cart with sessionId
@@ -62,6 +68,18 @@ export class OrderService {
       throw new Error("Address not found or does not belong to user");
     }
 
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // COD SECURITY: Ensure phone number is verified
+    if (paymentMethod === "COD" && !user.isPhoneVerified) {
+      throw new Error(
+        "Phone number must be verified to place a Cash on Delivery order."
+      );
+    }
+
     // 2. Start Transaction
     const transaction = await Order.sequelize!.transaction();
 
@@ -69,15 +87,51 @@ export class OrderService {
       // 3. Create Order Snapshot
       const addressSnapshot = address.toJSON();
 
+      // 🔐 STEP 1: Recalculate subtotal from DB (NEVER trust cart.totalAmount)
+      let recalculatedSubtotal = 0;
+
+      for (const cartItem of cart.items) {
+        const product = await Product.findByPk(cartItem.productId);
+        if (!product) {
+          throw new Error(`Product ${cartItem.productId} not found`);
+        }
+
+        recalculatedSubtotal += Number(product.price) * cartItem.quantity;
+      }
+
+      // 🔐 STEP 2: Validate & compute coupon securely
+      let discountAmount = 0;
+      let couponId: string | undefined;
+
+      if (couponCode) {
+        const coupon = await this.couponService.validateCoupon(
+          couponCode,
+          userId,
+          recalculatedSubtotal, // 🔐 USE SERVER CALCULATED SUBTOTAL
+        );
+
+        discountAmount = this.couponService.calculateDiscount(
+          coupon,
+          recalculatedSubtotal,
+        );
+
+        couponId = coupon.id;
+      }
+
       const order = await Order.create(
         {
           userId,
           addressId,
-          status: OrderStatus.CREATED,
-          subtotal: cart.totalAmount, // Assuming cart.totalAmount is correct
+          status: paymentMethod === "COD" ? OrderStatus.PAID : OrderStatus.CREATED,
+          subtotal: recalculatedSubtotal, // Store server-calculated subtotal
           tax: 0, // Placeholder for tax calculation
           shippingFee: 0, // Placeholder for shipping calculation
-          totalAmount: cart.totalAmount, // Adjust for tax/shipping
+          totalAmount:
+            recalculatedSubtotal - discountAmount < 0
+              ? 0
+              : recalculatedSubtotal - discountAmount, // Apply discount to total amount
+          couponId, // Store the applied coupon ID for reference
+          discountAmount, // Store the discount amount for reference
           currency: Currency.INR,
           shippingAddress: addressSnapshot,
           paymentMethod,
@@ -121,6 +175,7 @@ export class OrderService {
             orderId: order.id,
             productId: cartItem.productId,
             productName: product.name,
+            productImage: product.imageUrl?.[0] || null,
             unitPrice: product.price,
             quantity: cartItem.quantity,
             totalPrice: product.price * cartItem.quantity,
@@ -166,7 +221,7 @@ export class OrderService {
 
     return await Order.findOne({
       where,
-      include: [OrderItem, { model: Address, as: "address" }],
+      include: [OrderItem, { model: Address, as: "address" }, { model: Coupon, as: "coupon" }],
     });
   }
 
@@ -177,9 +232,153 @@ export class OrderService {
     const order = await Order.findByPk(id);
     if (!order) return null;
 
+    // Store previous status
+    const previousStatus = order.status;
+
     order.status = status;
     await order.save();
+
+    /**
+     * 🎯 Record coupon usage ONLY when:
+     * - Status transitions TO PAID
+     * - Was not already PAID
+     * - Order has coupon
+     */
+    if (
+      status === OrderStatus.PAID &&
+      previousStatus !== OrderStatus.PAID &&
+      order.couponId
+    ) {
+      await this.couponService.recordCouponUsage(
+        order.couponId,
+        order.userId!,
+        order.id,
+      );
+    }
+
+    /**
+     * 🔄 Restore Inventory when:
+     * - Status transitions TO FAILED or CANCELLED
+     * - Previous status was NOT FAILED or CANCELLED
+     */
+    if (
+      (status === OrderStatus.FAILED || status === OrderStatus.CANCELLED) &&
+      previousStatus !== OrderStatus.FAILED &&
+      previousStatus !== OrderStatus.CANCELLED
+    ) {
+      await this.restoreOrderInventory(order.id);
+    }
+
+    /**
+     * 🛒 Re-deduct Inventory on Retry Payment when:
+     * - Status transitions TO PAID
+     * - Previous status was FAILED or CANCELLED (i.e. a retry scenario)
+     * Stock was already restored when the order failed, so we must
+     * re-deduct it now that payment is confirmed.
+     */
+    if (
+      status === OrderStatus.PAID &&
+      (previousStatus === OrderStatus.FAILED ||
+        previousStatus === OrderStatus.CANCELLED)
+    ) {
+      await this.deductOrderInventory(order.id);
+    }
+
     return order;
+  }
+
+  /**
+   * ♻️ Restore Inventory
+   * Returns items back to stock after a failed or cancelled order.
+   * Restores both `quantity` and `reservedQuantity` to keep availableQuantity accurate.
+   */
+  async restoreOrderInventory(orderId: string): Promise<void> {
+    const order = await Order.findByPk(orderId, {
+      include: [OrderItem],
+    });
+
+    if (!order || !order.items) return;
+
+    const transaction = await Order.sequelize!.transaction();
+
+    try {
+      for (const item of order.items) {
+        const inventory = await Inventory.findOne({
+          where: { productId: item.productId },
+          transaction,
+        });
+
+        if (inventory) {
+          // createOrderFromCart decremented both `quantity` AND `reservedQuantity`.
+          // We must restore both so that availableQuantity (quantity - reservedQuantity)
+          // reflects the correct available stock.
+          await inventory.update(
+            {
+              quantity: inventory.quantity + item.quantity,
+              reservedQuantity: Math.max(0, inventory.reservedQuantity + item.quantity),
+            },
+            { transaction },
+          );
+        }
+      }
+      await transaction.commit();
+      console.log(`✅ Restored inventory for order ${orderId}`);
+    } catch (error) {
+      await transaction.rollback();
+      console.error(`❌ Failed to restore inventory for order ${orderId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 📦 Deduct Inventory
+   * Re-deducts stock for a retried order that has now been paid.
+   * Used when transitioning from FAILED/CANCELLED → PAID (retry scenario).
+   */
+  async deductOrderInventory(orderId: string): Promise<void> {
+    const order = await Order.findByPk(orderId, {
+      include: [OrderItem],
+    });
+
+    if (!order || !order.items) return;
+
+    const transaction = await Order.sequelize!.transaction();
+
+    try {
+      for (const item of order.items) {
+        const inventory = await Inventory.findOne({
+          where: { productId: item.productId },
+          transaction,
+        });
+
+        if (!inventory) {
+          throw new Error(`Inventory not found for product ${item.productId}`);
+        }
+
+        if (inventory.availableQuantity < item.quantity) {
+          throw new Error(
+            `Insufficient stock for product "${item.productName}". ` +
+            `Available: ${inventory.availableQuantity}, required: ${item.quantity}.`
+          );
+        }
+
+        // Mirror the same deduction done in createOrderFromCart
+        await inventory.update(
+          {
+            quantity: inventory.quantity - item.quantity,
+            reservedQuantity: Math.max(0, inventory.reservedQuantity - item.quantity),
+          },
+          { transaction },
+        );
+      }
+
+      await transaction.commit();
+      console.log(`✅ Re-deducted inventory for retried order ${orderId}`);
+    } catch (error) {
+      await transaction.rollback();
+      console.error(`❌ Failed to deduct inventory for order ${orderId}:`, error);
+      throw error;
+    }
   }
 
   async getAllOrders(
@@ -197,7 +396,7 @@ export class OrderService {
 
     const findOptions: FindOptions = {
       where,
-      include: [{ model: OrderItem }, { model: Address, as: "address" }],
+      include: [{ model: OrderItem }, { model: Address, as: "address" }, { model: Coupon, as: "coupon" }],
       order: [["createdAt", "DESC"]],
     };
 
@@ -224,11 +423,23 @@ export class OrderService {
 
     /**
      * Guardrails:
-     * - You should not ship unpaid orders
+     * - You should not ship unpaid orders UNLESS they are COD
      * - You should not deliver unshipped orders
      */
-    if (order.status !== OrderStatus.PAID) {
+    if (
+      order.status !== OrderStatus.PAID &&
+      order.paymentMethod !== "COD"
+    ) {
       throw new Error("Cannot update fulfillment for unpaid orders");
+    }
+
+    //  AUTO-PAID: If COD is delivered, mark it as PAID automatically
+    if (
+      order.paymentMethod === "COD" &&
+      fulfillmentStatus === FulfillmentStatus.DELIVERED &&
+      order.status !== OrderStatus.PAID
+    ) {
+      order.status = OrderStatus.PAID;
     }
 
     order.fulfillmentStatus = fulfillmentStatus;

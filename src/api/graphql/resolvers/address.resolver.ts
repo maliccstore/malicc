@@ -20,9 +20,9 @@ import { UserRole } from "../../../enums/UserRole";
 @Service()
 @Resolver()
 export class AddressResolver {
-  constructor(private readonly addressService: AddressService) {}
+  constructor(private readonly addressService: AddressService) { }
 
-  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN, UserRole.CUSTOMER)
   @Query(() => [AddressType])
   async getUserAddresses(@Ctx() { user }: { user: UserToken }) {
     if (!user) throw new Error("Not authenticated");
