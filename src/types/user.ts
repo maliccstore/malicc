@@ -6,6 +6,7 @@ export type UserType = {
   username?: string;
   phoneNumber: string;
   email?: string;
+  password?: string;
   otp?: string | null;
   otpExpiration?: Date | null;
   role: UserRole;

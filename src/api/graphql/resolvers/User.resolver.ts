@@ -22,6 +22,12 @@ import { UserToken } from "../../../types/user";
 import { UserRole } from "../../../enums/UserRole";
 import { GraphQLError } from "graphql";
 
+import { generateJWT } from "../../../utils/auth";
+import {
+  SignupWithPasswordInput,
+  LoginPasswordInput,
+  AuthPayload,
+} from "../schemas/user.schema";
 /** Validates an e-mail string. Returns an error message or null. */
 function validateEmail(email: string): string | null {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -52,6 +58,49 @@ export class UserResolver {
     return role === "admin" || role === "super_admin";
   }
 
+  @Mutation(() => AuthPayload)
+  async signupWithPassword(
+    @Arg("input") input: SignupWithPasswordInput,
+  ): Promise<AuthPayload> {
+    const existingUser = await this.userService.getUserByPhone(
+      input.phoneNumber,
+    );
+
+    if (existingUser) {
+      throw new Error("User already exists");
+    }
+
+    const user = await this.userService.createUserWithPassword({
+      phoneNumber: input.phoneNumber,
+      password: input.password,
+      role: UserRole.CUSTOMER,
+      isPhoneVerified: true,
+    });
+
+    const token = generateJWT(user);
+
+    return {
+      token,
+      user,
+    };
+  }
+
+  @Mutation(() => AuthPayload)
+  async loginWithPassword(
+    @Arg("input") input: LoginPasswordInput,
+  ): Promise<AuthPayload> {
+    const user = await this.userService.loginWithPassword(
+      input.phoneNumber,
+      input.password,
+    );
+
+    const token = generateJWT(user);
+
+    return {
+      token,
+      user,
+    };
+  }
   // Deprecate it in production
   @Authorized(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Query(() => [UserProfile])
@@ -230,7 +279,11 @@ export class UserResolver {
     );
 
     // OTP is sent to the new number — proves ownership before isPhoneVerified=true
-    this.verificationService.sendVerificationCode(newPhoneNumber, otp, otpExpiration);
+    this.verificationService.sendVerificationCode(
+      newPhoneNumber,
+      otp,
+      otpExpiration,
+    );
 
     return true;
   }
