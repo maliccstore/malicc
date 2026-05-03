@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { formatGraphQLError } from "./utils/errorHandler";
+import path from "path";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
 import { ApolloServer } from "@apollo/server";
 import express, { Express } from "express";
@@ -22,6 +23,21 @@ import { InventoryResolver } from "./api/graphql/resolvers/Inventory.resolver";
 import { OrderResolver } from "./api/graphql/resolvers/Order.resolver";
 import { AddressResolver } from "./api/graphql/resolvers/address.resolver";
 import { CategoryResolver } from "./api/graphql/resolvers/Category.resolver";
+import { CouponResolver } from "./api/graphql/resolvers/Coupon.resolver";
+import { AdminCouponResolver } from "./api/graphql/resolvers/AdminCoupon.resolver";
+import { CouponExpirationJob } from "./jobs/couponExpiration.job";
+import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
+import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
+import uploadRoutes from "./api/routes/upload.routes";
+import webhookRoutes from "./api/routes/webhook.routes";
+import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
+import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
+// WebSocket subscription support
+import { execute, subscribe } from "graphql";
+import { WebSocketServer } from "ws";
+import { makeServer } from "graphql-ws";
+const { useServer } = require("graphql-ws/use/ws");
+import { pubsub } from "./realtime/pubsub";
 
 async function bootstrap() {
   dotenv.config();
@@ -41,13 +57,20 @@ async function bootstrap() {
       OrderResolver,
       AddressResolver,
       CategoryResolver,
+      CouponResolver,
+      AdminCouponResolver,
+      PaymentResolver,
+      ReviewResolver,
+      AnalyticsResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
     container: Container,
+    // Provide the pubsub engine for subscriptions
+    pubSub: pubsub as any,
   });
 
-  // 2. Create Apollo Server
+  // 2. Create Apollo Server (HTTP only — subscriptions handled via WS below)
   const apolloServer = new ApolloServer({
     schema: schema,
     introspection: true,
@@ -59,23 +82,12 @@ async function bootstrap() {
   // cookie-parser
   app.use(cookieParser());
   // ✅ CORS Configuration - Handled in Node.js
-  const allowedOrigins = [
-    "https://malicc.store",
-    "https://www.malicc.store",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "https://studio.apollographql.com",
-    "http://localhost:8080",
-    "http://localhost:8081",
-    "http://localhost:8000",
-  ];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
   const corsOptions = {
     origin: function (
       origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
+      callback: (err: Error | null, allow?: boolean) => void,
     ) {
       // Allow requests with no origin (like mobile apps, Postman, curl)
       if (!origin) return callback(null, true);
@@ -105,14 +117,25 @@ async function bootstrap() {
 
   // Session Middleware
   app.use(sessionMiddleware);
-  // GraphQL endpoint
+
+  // Modular Upload Routes
+  app.use("/admin/uploads", uploadRoutes);
+
+  // Webhook Routes
+  app.use("/api/webhooks", webhookRoutes);
+
+  // Static File Serving for uploads
+  app.use(
+    "/uploads",
+    express.static(path.join(process.cwd(), "public", "uploads")),
+  );
+
   // GraphQL endpoint
   app.use(
     "/graphql",
     express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req, res }) => {
-        // Your existing token logic
         const token = getTokenFromRequest(req);
         let user = null;
 
@@ -120,18 +143,15 @@ async function bootstrap() {
           try {
             const payload = verifyToken(token);
             user = payload;
-            // Attach user to request for context
             (req as any).user = user;
           } catch (error) {
-            // Token is invalid, proceed without user
             console.log("Invalid token:", error);
           }
         }
 
-        // Use the createContext function
         return createContext({ req, res });
       },
-    })
+    }),
   );
 
   // Health check endpoint
@@ -153,20 +173,42 @@ async function bootstrap() {
     });
   });
 
-  const server = app.listen(port, () => {
+  // ─── Start HTTP Server ─────────────────────────────────────────────────────
+  const httpServer = app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
     console.log(`🌐 CORS enabled for: ${allowedOrigins.join(", ")}`);
     console.log(`📊 Health check: http://localhost:${port}/health`);
     console.log(`🧪 Test CORS: http://localhost:${port}/test-cors`);
   });
 
-  server.on("error", (error) => {
+  // ─── WebSocket Subscription Server ────────────────────────────────────────
+  // Subscriptions are served on the same port as HTTP, at ws://<host>/graphql
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: "/graphql",
+  });
+
+  // Attach graphql-ws to the WS server
+  useServer(
+    {
+      schema,
+      execute,
+      subscribe,
+    },
+    wsServer,
+  );
+
+  console.log(
+    `🔌 WebSocket subscription server ready at ws://localhost:${port}/graphql`,
+  );
+
+  httpServer.on("error", (error) => {
     console.error("Server error:", error);
     process.exit(1);
   });
 
-  process.on("SIGTERM", () => {
-    server.close(() => {
+  process.on("SIGTERM", async () => {
+    httpServer.close(() => {
       console.log("Server closed");
       process.exit(0);
     });
@@ -177,6 +219,10 @@ bootstrap()
   .then(() => sequelize.sync({ alter: true }))
   .then(() => {
     console.log("Database synced");
+  })
+  .then(() => {
+    CouponExpirationJob.start();
+    OrderCleanupJob.start();
   })
   .catch((err) => {
     console.error("Bootstrap failed:", err);

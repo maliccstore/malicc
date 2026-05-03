@@ -3,7 +3,7 @@ import "reflect-metadata";
 import { Service } from "typedi";
 import User from "../models/UserModel";
 import { CreateUserDTO, NewUserType } from "../dtos/CreateUser.dto";
-import { generateOTP, generateOTPExpiration } from "../utils/otp";
+import { generateOTP, generateOTPExpiration, checkValidOTP } from "../utils/otp";
 import { UserType } from "../types/user";
 
 //  These are the use services for the user,
@@ -81,7 +81,78 @@ class UserService {
     if (updatedRows === 0) {
       throw new Error(`No user found with phone number ${phoneNumber}`);
     }
+
     return { otp, otpExpiration };
+  }
+
+  /**
+   * Step 1 of the admin phone-change flow.
+   *
+   * Immediately writes the new phone number to the user record and marks
+   * the phone as unverified, then generates and stores an OTP.
+   * The caller is responsible for sending the OTP to `newPhoneNumber`.
+   *
+   * Returns the OTP details so the caller can dispatch the SMS.
+   */
+  async initiatePhoneChange(
+    currentPhoneNumber: string,
+    newPhoneNumber: string,
+  ): Promise<{ otp: string; otpExpiration: Date }> {
+    const user = await this.getUserByPhone(currentPhoneNumber);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Ensure the new number isn't already taken
+    const conflict = await User.findOne({ where: { phoneNumber: newPhoneNumber } });
+    if (conflict) {
+      throw new Error("Phone number is already in use by another account");
+    }
+
+    const otp = generateOTP();
+    const otpExpiration = generateOTPExpiration();
+
+    // Immediately write the new phone number and mark as unverified
+    await User.update(
+      {
+        phoneNumber: newPhoneNumber,
+        isPhoneVerified: false,
+        otp,
+        otpExpiration,
+      },
+      { where: { phoneNumber: currentPhoneNumber } },
+    );
+
+    return { otp, otpExpiration };
+  }
+
+  /**
+   * Step 2 of the admin phone-change flow.
+   *
+   * Validates the OTP on the user record (now identified by `newPhoneNumber`
+   * since it was already written in step 1), marks the phone as verified,
+   * and clears the OTP state.
+   */
+  async confirmPhoneChange(newPhoneNumber: string, otp: string): Promise<User> {
+    // The record now lives under the new phone number (written in step 1)
+    const user = await this.getUserByPhone(newPhoneNumber);
+
+    if (!checkValidOTP(user, otp)) {
+      throw new Error("Invalid OTP");
+    }
+
+    await User.update(
+      {
+        isPhoneVerified: true,
+        otp: null,
+        otpExpiration: null,
+      },
+      { where: { phoneNumber: newPhoneNumber } },
+    );
+
+    const updated = await this.getUserByPhone(newPhoneNumber);
+    if (!updated) throw new Error("Failed to retrieve updated user");
+    return updated;
   }
 }
 

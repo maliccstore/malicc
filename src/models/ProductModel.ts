@@ -63,6 +63,7 @@ export class Product extends Model {
   @AllowNull
   @Column({
     type: DataType.STRING(100),
+    unique: true,
   })
   sku?: string;
 

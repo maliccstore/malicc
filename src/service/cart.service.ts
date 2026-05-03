@@ -242,6 +242,17 @@ export class CartService {
 
     if (cartItem) {
       const quantityDifference = input.quantity - cartItem.quantity;
+      const isIncreasing = quantityDifference > 0;
+
+      // Validate product and check stock BEFORE making any changes
+      // If we're increasing, check if we have enough additional stock.
+      // If we're decreasing or removing (quantity: 0), we don't need to check stock,
+      // but we still want to ensure the product exists and is active.
+      const productDetails = await this.getProductDetails(
+        input.productId,
+        isIncreasing ? quantityDifference : 0,
+        isIncreasing
+      );
 
       // Handle inventory reservation/release
       const inventory = await Inventory.findOne({
@@ -249,23 +260,23 @@ export class CartService {
       });
 
       if (inventory) {
-        if (quantityDifference > 0) {
+        if (isIncreasing) {
           // Increasing quantity - reserve more items
+          // reserve already checks stock under lock, but getProductDetails provided a pre-check
           if (!(await inventory.reserve(quantityDifference))) {
             const available = inventory.availableQuantity;
             throw new Error(
-              `Cannot add ${quantityDifference} more items. Only ${available} available.`
+              `Cannot add ${quantityDifference} more items for ${productDetails.name}. Only ${available} available.`
             );
           }
           console.log(
-            `✅ Reserved ${quantityDifference} more items for ${cartItem.product?.name || input.productId}`
+            `✅ Reserved ${quantityDifference} more items for ${productDetails.name}`
           );
         } else if (quantityDifference < 0) {
           // Decreasing quantity - release items
           await inventory.release(Math.abs(quantityDifference));
           console.log(
-            `🔄 Released ${Math.abs(quantityDifference)} items for ${cartItem.product?.name || input.productId
-            }`
+            `🔄 Released ${Math.abs(quantityDifference)} items for ${productDetails.name}`
           );
         }
       }
@@ -273,11 +284,9 @@ export class CartService {
       if (input.quantity === 0) {
         // Remove item if quantity is 0
         await cartItem.destroy();
-        console.log(`🗑️ Removed item: ${cartItem.product?.name || input.productId}`);
+        console.log(`🗑️ Removed item: ${productDetails.name}`);
       } else {
         // Update quantity and refresh product details
-        const productDetails = await this.getProductDetails(input.productId, 1, false); // just checking price/existence
-
         cartItem.quantity = input.quantity;
         cartItem.unitPrice = productDetails.price;
         cartItem.calculateTotals();
