@@ -29,7 +29,11 @@ export class Coupon extends Model {
   code!: string;
 
   @AllowNull(false)
-  @Column(DataType.ENUM(...Object.values(DiscountType)))
+  @Column({
+    type: DataType.ENUM("PERCENTAGE", "FIXED"),
+    values: ["PERCENTAGE", "FIXED"],
+    field: "discountType",
+  })
   discountType!: DiscountType;
 
   @AllowNull(false)
