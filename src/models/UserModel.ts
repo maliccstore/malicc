@@ -16,11 +16,24 @@ import { UserRole } from "../enums/UserRole";
 
 import { HasMany } from "sequelize-typescript";
 import Address from "./Address";
+import { Optional } from "sequelize";
+
+type UserCreationAttributes = Optional<
+  UserType,
+  | "id"
+  | "createdAt"
+  | "updatedAt"
+  | "otp"
+  | "otpExpiration"
+  | "username"
+  | "email"
+  | "password"
+>;
 @Table({
   tableName: "users",
   timestamps: true,
 })
-class User extends Model<UserType> implements UserType {
+class User extends Model<UserType, UserCreationAttributes> implements UserType {
   @PrimaryKey
   @AutoIncrement
   @Column(DataType.INTEGER)
@@ -34,6 +47,10 @@ class User extends Model<UserType> implements UserType {
   @Unique
   @Column(DataType.STRING)
   public email?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  public password?: string;
 
   @AllowNull(false)
   @Unique({
@@ -74,6 +91,10 @@ class User extends Model<UserType> implements UserType {
 
   @HasMany(() => Address)
   addresses!: Address[];
+
+  @Default("OTP")
+  @Column(DataType.ENUM("OTP", "PASSWORD", "BOTH"))
+  authType!: "OTP" | "PASSWORD" | "BOTH";
 }
 
 export default User;
