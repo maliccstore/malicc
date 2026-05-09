@@ -14,6 +14,9 @@ import {
 } from "../utils/otp";
 import { UserType } from "../types/user";
 import { hashPassword, comparePassword } from "../utils/auth";
+import { Order } from "../models/Order";
+import { OrderItem } from "../models/OrderItem";
+import { Product } from "../models/ProductModel";
 //  These are the use services for the user,
 //  Either to Create, Find, Update or Delete a User
 
@@ -190,6 +193,41 @@ class UserService {
     const updated = await this.getUserByPhone(newPhoneNumber);
     if (!updated) throw new Error("Failed to retrieve updated user");
     return updated;
+  }
+
+  /**
+   * Helper method to find customers with previous orders
+   */
+  async getCustomersWithOrders(): Promise<User[]> {
+    const orders = await Order.findAll({ 
+      attributes: ['userId'], 
+      where: { userId: { [require("sequelize").Op.not]: null } }, 
+      group: ['userId'] 
+    });
+    const userIds = orders.map(o => o.userId!);
+    if (userIds.length === 0) return [];
+    return User.findAll({ where: { id: userIds } });
+  }
+
+  /**
+   * Helper method to find customers by purchased category
+   */
+  async getCustomersByPurchasedCategory(categoryName: string): Promise<User[]> {
+    const orders = await Order.findAll({
+      include: [{
+        model: OrderItem,
+        include: [{
+          model: Product,
+          where: { category: categoryName }
+        }]
+      }],
+      where: { userId: { [require("sequelize").Op.not]: null } }
+    });
+
+    const userIds = [...new Set(orders.map(o => o.userId!))];
+    if (userIds.length === 0) return [];
+    
+    return User.findAll({ where: { id: userIds } });
   }
 }
 
