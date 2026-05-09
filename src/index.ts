@@ -32,6 +32,7 @@ import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
+import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
 // WebSocket subscription support
 import { execute, subscribe } from "graphql";
 import { WebSocketServer } from "ws";
@@ -62,6 +63,7 @@ async function bootstrap() {
       PaymentResolver,
       ReviewResolver,
       AnalyticsResolver,
+      AdminMarketingResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },

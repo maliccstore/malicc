@@ -15,7 +15,8 @@ import { Coupon } from "../models/Coupon";
 import { CouponUsage } from "../models/CouponUsage";
 import { Review } from "../models/Review";
 import { Event } from "../models/Event";
-
+import { WhatsAppCampaign } from "../models/WhatsAppCampaign";
+import { WhatsAppCampaignRecipient } from "../models/WhatsAppCampaignRecipient";
 const sequelize = new Sequelize({
   database: appConfig.DB_NAME,
   username: appConfig.DB_USER,
@@ -40,6 +41,8 @@ const sequelize = new Sequelize({
     CouponUsage,
     Review,
     Event,
+    WhatsAppCampaign,
+    WhatsAppCampaignRecipient,
   ],
 });
 
