@@ -33,10 +33,10 @@ import webhookRoutes from "./api/routes/webhook.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
+import whatsappRoutes from "./api/routes/whatsapp.routes";
 // WebSocket subscription support
 import { execute, subscribe } from "graphql";
 import { WebSocketServer } from "ws";
-import { makeServer } from "graphql-ws";
 const { useServer } = require("graphql-ws/use/ws");
 import { pubsub } from "./realtime/pubsub";
 
@@ -117,6 +117,9 @@ async function bootstrap() {
   // Apply CORS to all routes
   app.use(cors(corsOptions));
 
+  // Parse JSON bodies for REST routes
+  app.use(express.json());
+
   // Session Middleware
   app.use(sessionMiddleware);
 
@@ -125,6 +128,9 @@ async function bootstrap() {
 
   // Webhook Routes
   app.use("/api/webhooks", webhookRoutes);
+
+  // WhatsApp Marketing Routes
+  app.use("/api/whatsapp", whatsappRoutes);
 
   // Static File Serving for uploads
   app.use(
@@ -135,7 +141,6 @@ async function bootstrap() {
   // GraphQL endpoint
   app.use(
     "/graphql",
-    express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req, res }) => {
         const token = getTokenFromRequest(req);

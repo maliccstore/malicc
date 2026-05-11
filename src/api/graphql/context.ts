@@ -5,7 +5,7 @@ import { CartService } from "../../service/cart.service";
 import { SessionData } from "../../interface/session";
 
 // Define a proper user type if you have one, otherwise use this:
-interface ContextUser {
+export interface ContextUser {
   id: string;
   role: string;
   phoneNumber: string;

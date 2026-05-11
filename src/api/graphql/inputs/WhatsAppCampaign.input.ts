@@ -10,6 +10,18 @@ export class TemplateVariableInput {
 }
 
 @InputType()
+export class CampaignFiltersInput {
+  @Field({ nullable: true })
+  customerType?: string;
+
+  @Field(() => Int, { nullable: true })
+  purchasedWithinDays?: number;
+
+  @Field(() => Int, { nullable: true })
+  minSpent?: number;
+}
+
+@InputType()
 export class SendWhatsAppCampaignInput {
   @Field()
   title!: string;
@@ -28,6 +40,9 @@ export class SendWhatsAppCampaignInput {
 
   @Field(() => [TemplateVariableInput], { nullable: true })
   variables?: TemplateVariableInput[];
+
+  @Field(() => CampaignFiltersInput, { nullable: true })
+  filters?: CampaignFiltersInput;
 }
 
 @InputType()
@@ -52,6 +67,9 @@ export class SendProductAnnouncementInput {
 
   @Field({ nullable: true })
   targetAll?: boolean;
+
+  @Field(() => CampaignFiltersInput, { nullable: true })
+  filters?: CampaignFiltersInput;
 }
 
 @InputType()

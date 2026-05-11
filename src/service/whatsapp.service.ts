@@ -1,6 +1,13 @@
 import appConfig from "../config";
 import { WhatsAppCampaign, CampaignStatus, MessageType } from "../models/WhatsAppCampaign";
 import { WhatsAppCampaignRecipient, DeliveryStatus } from "../models/WhatsAppCampaignRecipient";
+import User from "../models/UserModel";
+import { Order } from "../models/Order";
+import { Op, fn, col } from "sequelize";
+import { OrderStatus } from "../enums/OrderStatus";
+import { CustomerType } from "../enums/CustomerType";
+import { PurchaseActivity } from "../enums/PurchaseActivity";
+import { UserRole } from "../enums/UserRole";
 
 class WhatsAppService {
   private apiUrl: string;
@@ -139,6 +146,115 @@ class WhatsAppService {
     this.processCampaign(campaignId).catch((err) => {
       console.error(`Failed to process campaign ${campaignId}:`, err);
     });
+  }
+
+  public async estimateAudience(filters: {
+    customerType?: CustomerType;
+    purchasedWithinDays?: PurchaseActivity;
+    minSpent?: number;
+  }): Promise<number> {
+    const userIds = await this.getFilteredUserIds(filters);
+
+    const userWhere: any = {
+      role: UserRole.CUSTOMER, // Only target customers
+      phoneNumber: { [Op.ne]: null }, // Must have a phone number
+    };
+
+    if (filters.customerType === CustomerType.NEW) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      userWhere.createdAt = { [Op.gte]: thirtyDaysAgo };
+    }
+
+    if (userIds !== null) {
+      userWhere.id = { [Op.in]: userIds };
+    }
+
+    return await User.count({ where: userWhere });
+  }
+
+  public async getFilteredUserIds(filters: {
+    customerType?: CustomerType;
+    purchasedWithinDays?: PurchaseActivity;
+    minSpent?: number;
+  }): Promise<number[] | null> {
+    const { customerType, purchasedWithinDays, minSpent } = filters;
+
+    // 1. Build User ID set based on Order criteria (Spent, Purchase Activity, Repeat/Inactive)
+    let orderBasedUserIds: number[] | null = null;
+
+    if (purchasedWithinDays || minSpent || customerType === CustomerType.REPEAT || customerType === CustomerType.INACTIVE) {
+      const orderWhere: any = {
+        status: { [Op.in]: [OrderStatus.PAID, OrderStatus.FULFILLED] },
+      };
+
+      const orders = await Order.findAll({
+        where: orderWhere,
+        attributes: [
+          "userId",
+          [fn("SUM", col("totalAmount")), "totalSpent"],
+          [fn("COUNT", col("id")), "orderCount"],
+          [fn("MAX", col("createdAt")), "lastOrderDate"],
+        ],
+        group: ["userId"],
+      });
+
+      const filteredIds = orders
+        .filter((o: any) => {
+          const totalSpent = parseFloat(o.get("totalSpent") || "0");
+          const orderCount = parseInt(o.get("orderCount") || "0", 10);
+          const lastOrderDate = new Date(o.get("lastOrderDate"));
+          const now = new Date();
+
+          // Spending Filter
+          if (minSpent && totalSpent < minSpent) return false;
+
+          // Purchased Within Days Filter
+          if (purchasedWithinDays) {
+            const daysSinceLastOrder = (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+            if (daysSinceLastOrder > purchasedWithinDays) return false;
+          }
+
+          // Customer Type Specific Order Logic
+          if (customerType === CustomerType.REPEAT && orderCount < 2) return false;
+          if (customerType === CustomerType.INACTIVE) {
+            const daysSinceLastOrder = (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+            if (daysSinceLastOrder <= 90) return false;
+          }
+
+          return true;
+        })
+        .map((o: any) => o.userId)
+        .filter((id): id is number => id !== null);
+
+      orderBasedUserIds = filteredIds;
+    }
+
+    return orderBasedUserIds;
+  }
+
+  public async getFinalAudienceIds(filters: {
+    customerType?: CustomerType;
+    purchasedWithinDays?: PurchaseActivity;
+    minSpent?: number;
+  }): Promise<number[]> {
+    const userIds = await this.getFilteredUserIds(filters);
+
+    const userWhere: any = {
+      role: UserRole.CUSTOMER, // Only target customers
+      phoneNumber: { [Op.ne]: null }, // Must have a phone number
+    };
+
+    if (filters.customerType === CustomerType.NEW) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      userWhere.createdAt = { [Op.gte]: thirtyDaysAgo };
+    }
+
+    if (userIds !== null) {
+      userWhere.id = { [Op.in]: userIds };
+    }
+
+    const users = await User.findAll({ where: userWhere, attributes: ['id'] });
+    return users.map(u => u.id);
   }
 }
 
