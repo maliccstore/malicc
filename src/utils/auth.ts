@@ -1,9 +1,7 @@
-import { UserProfile } from "./../api/graphql/schemas/user.schema";
 import jwt from "jsonwebtoken";
 import User from "../models/UserModel";
 import { AuthChecker } from "type-graphql";
-import { GraphQLContext } from "../api/graphql/context";
-import { AuthPayload } from "../api/graphql/schemas/user.schema";
+import { GraphQLContext, ContextUser } from "../api/graphql/context";
 import { Request } from "express";
 import { UserRole } from "@/enums/UserRole";
 import { ForbiddenError } from "../errors";
@@ -51,11 +49,11 @@ export function getTokenFromRequest(req: Request): string | null {
 }
 
 // Sign Up OTP Verification
-export function verifyToken(token: string): AuthPayload {
+export function verifyToken(token: string): ContextUser {
   if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET not configured");
   const payload = jwt.verify(token, process.env.JWT_SECRET!);
   log(payload);
-  return payload as AuthPayload;
+  return payload as ContextUser;
 }
 
 export const authChecker: AuthChecker<GraphQLContext, UserRole> = (

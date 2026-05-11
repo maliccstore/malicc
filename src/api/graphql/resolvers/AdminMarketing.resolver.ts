@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Arg, Authorized, Ctx } from "type-graphql";
 import { Service } from "typedi";
 import { requireAdmin } from "../../../middlewares/adminAuth";
 import { Context } from "../context";
-import { WhatsAppCampaignSchema, WhatsAppCampaignResponse, WhatsAppCampaignsResponse } from "../schemas/whatsapp.schema";
+import {  WhatsAppCampaignResponse, WhatsAppCampaignsResponse } from "../schemas/whatsapp.schema";
 import { SendWhatsAppCampaignInput, SendProductAnnouncementInput, CampaignFilterInput } from "../inputs/WhatsAppCampaign.input";
 import { WhatsAppCampaign, MessageType, CampaignStatus } from "../../../models/WhatsAppCampaign";
 import { WhatsAppCampaignRecipient } from "../../../models/WhatsAppCampaignRecipient";
@@ -36,6 +36,12 @@ export class AdminMarketingResolver {
         targetUserIds = users.map(u => u.id);
       } else if (input.customerIds && input.customerIds.length > 0) {
         targetUserIds = input.customerIds;
+      } else if (input.filters) {
+        targetUserIds = await WhatsAppService.getFinalAudienceIds({
+          customerType: input.filters.customerType as any,
+          purchasedWithinDays: input.filters.purchasedWithinDays as any,
+          minSpent: input.filters.minSpent,
+        });
       } else {
         throw new Error("No recipients specified");
       }
@@ -102,6 +108,12 @@ export class AdminMarketingResolver {
         targetUserIds = users.map(u => u.id);
       } else if (input.customerIds && input.customerIds.length > 0) {
         targetUserIds = input.customerIds;
+      } else if (input.filters) {
+        targetUserIds = await WhatsAppService.getFinalAudienceIds({
+          customerType: input.filters.customerType as any,
+          purchasedWithinDays: input.filters.purchasedWithinDays as any,
+          minSpent: input.filters.minSpent,
+        });
       } else {
         throw new Error("No recipients specified");
       }
