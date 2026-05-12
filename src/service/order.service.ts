@@ -14,6 +14,7 @@ import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 import { CouponService } from "./coupon.service";
 import { Coupon } from "../models/Coupon";
 import User from "../models/UserModel";
+import { EventService, EVENTS } from "../events";
 
 @Service()
 export class OrderService {
@@ -198,9 +199,26 @@ export class OrderService {
       await transaction.commit();
 
       // Reload order with items
-      return (await Order.findByPk(order.id, {
+      const finalOrder = (await Order.findByPk(order.id, {
         include: [OrderItem],
       })) as Order;
+
+      // 🎯 Emit order.created event
+      await EventService.emit({
+        eventType: EVENTS.ORDER_CREATED,
+        storeId: process.env.STORE_ID || "unknown",
+        userId: userId,
+        sessionId: sessionId,
+        payload: {
+          id: finalOrder.id,
+          totalAmount: finalOrder.totalAmount,
+          items: finalOrder.items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
+          paymentMethod: finalOrder.paymentMethod,
+        },
+        transaction,
+      });
+
+      return finalOrder;
     } catch (error) {
       await transaction.rollback();
       throw error;
@@ -282,6 +300,21 @@ export class OrderService {
         previousStatus === OrderStatus.CANCELLED)
     ) {
       await this.deductOrderInventory(order.id);
+    }
+
+    /**
+     * 🎯 Emit order.cancelled event if status changed to CANCELLED
+     */
+    if (status === OrderStatus.CANCELLED && previousStatus !== OrderStatus.CANCELLED) {
+      await EventService.emit({
+        eventType: EVENTS.ORDER_CANCELLED,
+        storeId: process.env.STORE_ID || "unknown",
+        userId: order.userId || undefined,
+        payload: {
+          id: order.id,
+          previousStatus,
+        }
+      });
     }
 
     return order;

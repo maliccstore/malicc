@@ -1,4 +1,5 @@
 import { Event } from "../models/Event";
+import { EventService } from "../events";
 import { TrackEventPayload } from "../types/analytics.types";
 import EventProcessorService from "./event-processor.service";
 import { pubsub, LIVE_ANALYTICS_TOPIC } from "../realtime/pubsub";
@@ -158,11 +159,12 @@ export class AnalyticsService {
       const userId = context?.user?.id || input.userId || null;
 
       // 3. Save event (SOURCE OF TRUTH)
-      await Event.create({
-        event: normalizedEvent,
-        session_id: input.sessionId,
-        user_id: userId,
-        metadata: input.metadata || {},
+      await EventService.emit({
+        eventType: normalizedEvent,
+        sessionId: input.sessionId,
+        userId: userId,
+        storeId: process.env.STORE_ID || "unknown",
+        payload: input.metadata || {},
       });
 
       // 4. Update real-time stats (ONLY for guests and customers)

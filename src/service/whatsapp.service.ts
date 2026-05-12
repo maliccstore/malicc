@@ -8,6 +8,7 @@ import { OrderStatus } from "../enums/OrderStatus";
 import { CustomerType } from "../enums/CustomerType";
 import { PurchaseActivity } from "../enums/PurchaseActivity";
 import { UserRole } from "../enums/UserRole";
+import { EventService, EVENTS } from "../events";
 
 class WhatsAppService {
   private apiUrl: string;
@@ -131,12 +132,34 @@ class WhatsAppService {
       campaign.successfulCount = successCount;
       campaign.failedCount = failCount;
       await campaign.save();
-    } catch (error) {
+
+      // 🎯 Emit campaign.sent event
+      await EventService.emit({
+        eventType: EVENTS.CAMPAIGN_SENT,
+        storeId: process.env.STORE_ID || "unknown",
+        payload: {
+          id: campaign.id,
+          name: campaign.title,
+          successfulCount: successCount,
+          failedCount: failCount,
+        },
+      });
+    } catch (error: any) {
       console.error("Campaign processing error", error);
       const campaign = await WhatsAppCampaign.findByPk(campaignId);
       if (campaign) {
         campaign.status = CampaignStatus.FAILED;
         await campaign.save();
+
+        // 🎯 Emit campaign.failed event
+        await EventService.emit({
+          eventType: EVENTS.CAMPAIGN_FAILED,
+          storeId: process.env.STORE_ID || "unknown",
+          payload: {
+            id: campaign.id,
+            error: error.message,
+          },
+        });
       }
     }
   }
