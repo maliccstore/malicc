@@ -43,6 +43,12 @@ export class SendWhatsAppCampaignInput {
 
   @Field(() => CampaignFiltersInput, { nullable: true })
   filters?: CampaignFiltersInput;
+
+  @Field({ nullable: true })
+  productId?: string;
+
+  @Field({ nullable: true })
+  bannerImage?: string;
 }
 
 @InputType()

@@ -17,4 +17,10 @@ router.post(
   uploadController.uploadProductImage,
 );
 
+router.post(
+  "/campaign-banner",
+  uploadController.uploadMiddleware,
+  uploadController.uploadCampaignBanner,
+);
+
 export default router;
