@@ -37,6 +37,7 @@ interface AppConfig {
   META_WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
   META_WHATSAPP_API_VERSION?: string;
   META_WHATSAPP_WEBHOOK_VERIFY_TOKEN?: string;
+  FRONTEND_URL?: string;
 }
 
 // Validate required environment variables
@@ -92,6 +93,7 @@ const appConfig: AppConfig = {
   META_WHATSAPP_BUSINESS_ACCOUNT_ID: process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID,
   META_WHATSAPP_API_VERSION: process.env.META_WHATSAPP_API_VERSION || 'v23.0',
   META_WHATSAPP_WEBHOOK_VERIFY_TOKEN: process.env.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+  FRONTEND_URL: process.env.FRONTEND_URL,
 };
 
 export default appConfig;

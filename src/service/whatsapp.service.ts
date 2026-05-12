@@ -91,6 +91,21 @@ class WhatsAppService {
 
         const components: any[] = [];
         // Extract variables logic can be added here depending on template structure, e.g., mapping user details
+        if (campaign.bannerImage) {
+          components.push({
+            type: "header",
+            parameters: [
+              {
+                type: "image",
+                image: {
+                  link: campaign.bannerImage.startsWith("http")
+                    ? campaign.bannerImage
+                    : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImage}`,
+                },
+              },
+            ],
+          });
+        }
 
         // Simple retry mechanism (up to 3 tries)
         let sent = false;

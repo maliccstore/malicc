@@ -27,6 +27,8 @@ export class AdminMarketingResolver {
         messageTemplate: input.templateName,
         messageType: MessageType.PROMOTIONAL,
         createdBy: parseInt(context.user!.id, 10),
+        productId: input.productId,
+        bannerImage: input.bannerImage,
       });
 
       // 2. Resolve recipients
@@ -99,6 +101,7 @@ export class AdminMarketingResolver {
         messageTemplate: input.templateName,
         messageType: MessageType.PRODUCT_ANNOUNCEMENT,
         createdBy: parseInt(context.user!.id, 10),
+        productId: input.productId,
       });
 
       // 2. Resolve recipients

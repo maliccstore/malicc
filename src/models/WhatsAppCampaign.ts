@@ -36,6 +36,8 @@ interface WhatsAppCampaignAttributes {
   successfulCount: number;
   failedCount: number;
   createdBy: number;
+  productId?: string;
+  bannerImage?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +97,14 @@ export class WhatsAppCampaign extends Model<
   @AllowNull(false)
   @Column(DataType.INTEGER)
   public createdBy!: number;
+
+  @AllowNull(true)
+  @Column(DataType.UUID)
+  public productId?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(1000))
+  public bannerImage?: string;
 
   @CreatedAt
   @Column(DataType.DATE)

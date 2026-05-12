@@ -34,6 +34,12 @@ export class WhatsAppCampaignSchema {
 
   @Field()
   updatedAt!: Date;
+
+  @Field({ nullable: true })
+  productId?: string;
+
+  @Field({ nullable: true })
+  bannerImage?: string;
 }
 
 @ObjectType()
