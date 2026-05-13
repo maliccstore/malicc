@@ -29,7 +29,7 @@ export class SendWhatsAppCampaignInput {
   @Field()
   templateName!: string;
 
-  @Field({ defaultValue: "en" })
+  @Field({ defaultValue: "en_US" })
   templateLanguage!: string;
 
   @Field(() => [Int], { nullable: true })

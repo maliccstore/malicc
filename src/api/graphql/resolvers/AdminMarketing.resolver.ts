@@ -57,12 +57,16 @@ export class AdminMarketingResolver {
         attributes: ['id', 'phoneNumber']
       });
 
-      if (users.length === 0) {
-        throw new Error("No valid users found for the provided recipient list");
+      console.log(`[WhatsAppCampaign] Found ${users.length} users for target IDs: ${targetUserIds.join(', ')}`);
+
+      const validUsers = users.filter(user => user.phoneNumber && user.phoneNumber.toString().trim().length >= 10);
+
+      if (validUsers.length === 0) {
+        throw new Error("No valid users found with phone numbers for the provided recipient list");
       }
 
       // 3. Create recipients records
-      const recipientRecords = users.map(user => ({
+      const recipientRecords = validUsers.map(user => ({
         campaignId: campaign.id,
         userId: user.id,
         phoneNumber: user.phoneNumber,

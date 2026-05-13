@@ -1,6 +1,13 @@
 import appConfig from "../config";
-import { WhatsAppCampaign, CampaignStatus, MessageType } from "../models/WhatsAppCampaign";
-import { WhatsAppCampaignRecipient, DeliveryStatus } from "../models/WhatsAppCampaignRecipient";
+import {
+  WhatsAppCampaign,
+  CampaignStatus,
+  MessageType,
+} from "../models/WhatsAppCampaign";
+import {
+  WhatsAppCampaignRecipient,
+  DeliveryStatus,
+} from "../models/WhatsAppCampaignRecipient";
 import User from "../models/UserModel";
 import { Order } from "../models/Order";
 import { Op, fn, col } from "sequelize";
@@ -25,29 +32,46 @@ class WhatsAppService {
     return !!(this.accessToken && this.phoneNumberId);
   }
 
+  public formatPhoneNumber(phoneNumber: string): string {
+    if (!phoneNumber) return "";
+    // Remove all non-numeric characters
+    const cleaned = phoneNumber.toString().replace(/\D/g, "");
+
+    // If it's 10 digits, assume India (91) and prefix it
+    if (cleaned.length === 10) {
+      return `91${cleaned}`;
+    }
+
+    // If it's already 12 digits starting with 91, return as is
+    return cleaned;
+  }
+
   public async sendTemplateMessage(
     to: string,
     templateName: string,
     languageCode: string = "en_US",
-    components: any[] = []
+    components: any[] = [],
   ): Promise<{ messageId?: string; error?: string }> {
     if (!this.isConfigured()) {
       return { error: "WhatsApp API is not configured" };
     }
 
     try {
-      const payload = {
+      const payload: any = {
         messaging_product: "whatsapp",
-        to: to,
+        to: this.formatPhoneNumber(to),
         type: "template",
         template: {
           name: templateName,
           language: {
             code: languageCode,
           },
-          components: components,
         },
       };
+
+      if (components && components.length > 0) {
+        payload.template.components = components;
+      }
 
       const response = await fetch(this.apiUrl, {
         method: "POST",
@@ -80,73 +104,23 @@ class WhatsAppService {
       offerMessage?: string;
       ctaUrl?: string;
       language?: string;
-    }
+    },
   ): Promise<{ messageId?: string; error?: string }> {
     if (!this.isConfigured()) {
       return { error: "WhatsApp API is not configured" };
     }
 
     try {
-      const components: any[] = [];
-
-      // 1. Header Image
-      if (data.bannerImageUrl) {
-        components.push({
-          type: "header",
-          parameters: [
-            {
-              type: "image",
-              image: {
-                link: data.bannerImageUrl,
-              },
-            },
-          ],
-        });
-      }
-
-      // 2. Body Parameters (Headline and Offer Message)
-      const bodyParams: any[] = [];
-      if (data.headline) {
-        bodyParams.push({ type: "text", text: data.headline });
-      }
-      if (data.offerMessage) {
-        bodyParams.push({ type: "text", text: data.offerMessage });
-      }
-
-      if (bodyParams.length > 0) {
-        components.push({
-          type: "body",
-          parameters: bodyParams,
-        });
-      }
-
-      // 3. CTA Button (Dynamic URL suffix)
-      if (data.ctaUrl) {
-        components.push({
-          type: "button",
-          sub_type: "url",
-          index: "0",
-          parameters: [
-            {
-              type: "text",
-              text: data.ctaUrl.startsWith("http") 
-                ? data.ctaUrl.split("/").pop() || "" // Assuming dynamic suffix if full URL is passed
-                : data.ctaUrl,
-            },
-          ],
-        });
-      }
-
-      const payload = {
+      // Temporarily using simple payload to match working manual tests
+      const payload: any = {
         messaging_product: "whatsapp",
-        to: to,
+        to: this.formatPhoneNumber(to),
         type: "template",
         template: {
           name: templateName,
           language: {
             code: data.language || "en_US",
           },
-          components: components,
         },
       };
 
@@ -162,7 +136,9 @@ class WhatsAppService {
       const responseData = (await response.json()) as any;
 
       if (!response.ok) {
-        return { error: responseData.error?.message || "Unknown Meta API Error" };
+        return {
+          error: responseData.error?.message || "Unknown Meta API Error",
+        };
       }
 
       return { messageId: responseData.messages?.[0]?.id || "success" };
@@ -216,10 +192,10 @@ class WhatsAppService {
         for (let attempt = 1; attempt <= 3; attempt++) {
           let result;
           if (campaign.messageType === MessageType.PROMOTIONAL) {
-            const fullBannerImageUrl = campaign.bannerImageUrl 
-              ? (campaign.bannerImageUrl.startsWith("http")
+            const fullBannerImageUrl = campaign.bannerImageUrl
+              ? campaign.bannerImageUrl.startsWith("http")
                 ? campaign.bannerImageUrl
-                : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`)
+                : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`
               : undefined;
 
             result = await this.sendPromotionalTemplate(
@@ -232,14 +208,14 @@ class WhatsAppService {
                 offerMessage: campaign.offerMessage,
                 ctaUrl: campaign.ctaUrl,
                 language: campaign.language,
-              }
+              },
             );
           } else {
             result = await this.sendTemplateMessage(
               recipient.phoneNumber,
               campaign.messageTemplate,
               campaign.language, // Or dynamic
-              components
+              components,
             );
           }
 
@@ -283,7 +259,6 @@ class WhatsAppService {
         },
       });
     } catch (error: any) {
-      console.error("Campaign processing error", error);
       const campaign = await WhatsAppCampaign.findByPk(campaignId);
       if (campaign) {
         campaign.status = CampaignStatus.FAILED;
@@ -343,7 +318,12 @@ class WhatsAppService {
     // 1. Build User ID set based on Order criteria (Spent, Purchase Activity, Repeat/Inactive)
     let orderBasedUserIds: number[] | null = null;
 
-    if (purchasedWithinDays || minSpent || customerType === CustomerType.REPEAT || customerType === CustomerType.INACTIVE) {
+    if (
+      purchasedWithinDays ||
+      minSpent ||
+      customerType === CustomerType.REPEAT ||
+      customerType === CustomerType.INACTIVE
+    ) {
       const orderWhere: any = {
         status: { [Op.in]: [OrderStatus.PAID, OrderStatus.FULFILLED] },
       };
@@ -371,14 +351,17 @@ class WhatsAppService {
 
           // Purchased Within Days Filter
           if (purchasedWithinDays) {
-            const daysSinceLastOrder = (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+            const daysSinceLastOrder =
+              (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
             if (daysSinceLastOrder > purchasedWithinDays) return false;
           }
 
           // Customer Type Specific Order Logic
-          if (customerType === CustomerType.REPEAT && orderCount < 2) return false;
+          if (customerType === CustomerType.REPEAT && orderCount < 2)
+            return false;
           if (customerType === CustomerType.INACTIVE) {
-            const daysSinceLastOrder = (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
+            const daysSinceLastOrder =
+              (now.getTime() - lastOrderDate.getTime()) / (1000 * 3600 * 24);
             if (daysSinceLastOrder <= 90) return false;
           }
 
@@ -414,8 +397,8 @@ class WhatsAppService {
       userWhere.id = { [Op.in]: userIds };
     }
 
-    const users = await User.findAll({ where: userWhere, attributes: ['id'] });
-    return users.map(u => u.id);
+    const users = await User.findAll({ where: userWhere, attributes: ["id"] });
+    return users.map((u) => u.id);
   }
 }
 
