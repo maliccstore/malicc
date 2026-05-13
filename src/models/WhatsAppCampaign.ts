@@ -37,7 +37,11 @@ interface WhatsAppCampaignAttributes {
   failedCount: number;
   createdBy: number;
   productId?: string;
-  bannerImage?: string;
+  bannerImageUrl?: string;
+  headline?: string;
+  offerMessage?: string;
+  ctaUrl?: string;
+  language: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +53,7 @@ type WhatsAppCampaignCreationAttributes = Optional<
   | "totalRecipients"
   | "successfulCount"
   | "failedCount"
+  | "language"
   | "createdAt"
   | "updatedAt"
 >;
@@ -104,7 +109,23 @@ export class WhatsAppCampaign extends Model<
 
   @AllowNull(true)
   @Column(DataType.STRING(1000))
-  public bannerImage?: string;
+  public bannerImageUrl?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  public headline?: string;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  public offerMessage?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(1000))
+  public ctaUrl?: string;
+
+  @Default("en_US")
+  @Column(DataType.STRING(10))
+  public language!: string;
 
   @CreatedAt
   @Column(DataType.DATE)

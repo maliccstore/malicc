@@ -28,7 +28,7 @@ class WhatsAppService {
   public async sendTemplateMessage(
     to: string,
     templateName: string,
-    languageCode: string = "en",
+    languageCode: string = "en_US",
     components: any[] = []
   ): Promise<{ messageId?: string; error?: string }> {
     if (!this.isConfigured()) {
@@ -58,13 +58,114 @@ class WhatsAppService {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
 
       if (!response.ok) {
         return { error: data.error?.message || "Unknown Meta API Error" };
       }
 
       return { messageId: data.messages[0].id };
+    } catch (error: any) {
+      return { error: error.message || "Failed to send message" };
+    }
+  }
+
+  public async sendPromotionalTemplate(
+    to: string,
+    templateName: string,
+    data: {
+      title: string;
+      bannerImageUrl?: string;
+      headline?: string;
+      offerMessage?: string;
+      ctaUrl?: string;
+      language?: string;
+    }
+  ): Promise<{ messageId?: string; error?: string }> {
+    if (!this.isConfigured()) {
+      return { error: "WhatsApp API is not configured" };
+    }
+
+    try {
+      const components: any[] = [];
+
+      // 1. Header Image
+      if (data.bannerImageUrl) {
+        components.push({
+          type: "header",
+          parameters: [
+            {
+              type: "image",
+              image: {
+                link: data.bannerImageUrl,
+              },
+            },
+          ],
+        });
+      }
+
+      // 2. Body Parameters (Headline and Offer Message)
+      const bodyParams: any[] = [];
+      if (data.headline) {
+        bodyParams.push({ type: "text", text: data.headline });
+      }
+      if (data.offerMessage) {
+        bodyParams.push({ type: "text", text: data.offerMessage });
+      }
+
+      if (bodyParams.length > 0) {
+        components.push({
+          type: "body",
+          parameters: bodyParams,
+        });
+      }
+
+      // 3. CTA Button (Dynamic URL suffix)
+      if (data.ctaUrl) {
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [
+            {
+              type: "text",
+              text: data.ctaUrl.startsWith("http") 
+                ? data.ctaUrl.split("/").pop() || "" // Assuming dynamic suffix if full URL is passed
+                : data.ctaUrl,
+            },
+          ],
+        });
+      }
+
+      const payload = {
+        messaging_product: "whatsapp",
+        to: to,
+        type: "template",
+        template: {
+          name: templateName,
+          language: {
+            code: data.language || "en_US",
+          },
+          components: components,
+        },
+      };
+
+      const response = await fetch(this.apiUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = (await response.json()) as any;
+
+      if (!response.ok) {
+        return { error: responseData.error?.message || "Unknown Meta API Error" };
+      }
+
+      return { messageId: responseData.messages?.[0]?.id || "success" };
     } catch (error: any) {
       return { error: error.message || "Failed to send message" };
     }
@@ -91,16 +192,16 @@ class WhatsAppService {
 
         const components: any[] = [];
         // Extract variables logic can be added here depending on template structure, e.g., mapping user details
-        if (campaign.bannerImage) {
+        if (campaign.bannerImageUrl) {
           components.push({
             type: "header",
             parameters: [
               {
                 type: "image",
                 image: {
-                  link: campaign.bannerImage.startsWith("http")
-                    ? campaign.bannerImage
-                    : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImage}`,
+                  link: campaign.bannerImageUrl.startsWith("http")
+                    ? campaign.bannerImageUrl
+                    : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`,
                 },
               },
             ],
@@ -113,12 +214,34 @@ class WhatsAppService {
         let metaId = "";
 
         for (let attempt = 1; attempt <= 3; attempt++) {
-          const result = await this.sendTemplateMessage(
-            recipient.phoneNumber,
-            campaign.messageTemplate,
-            "en", // Or dynamic
-            components
-          );
+          let result;
+          if (campaign.messageType === MessageType.PROMOTIONAL) {
+            const fullBannerImageUrl = campaign.bannerImageUrl 
+              ? (campaign.bannerImageUrl.startsWith("http")
+                ? campaign.bannerImageUrl
+                : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`)
+              : undefined;
+
+            result = await this.sendPromotionalTemplate(
+              recipient.phoneNumber,
+              campaign.messageTemplate,
+              {
+                title: campaign.title,
+                bannerImageUrl: fullBannerImageUrl,
+                headline: campaign.headline,
+                offerMessage: campaign.offerMessage,
+                ctaUrl: campaign.ctaUrl,
+                language: campaign.language,
+              }
+            );
+          } else {
+            result = await this.sendTemplateMessage(
+              recipient.phoneNumber,
+              campaign.messageTemplate,
+              campaign.language, // Or dynamic
+              components
+            );
+          }
 
           if (result.messageId) {
             sent = true;
