@@ -48,7 +48,16 @@ export class SendWhatsAppCampaignInput {
   productId?: string;
 
   @Field({ nullable: true })
-  bannerImage?: string;
+  bannerImageUrl?: string;
+
+  @Field({ nullable: true })
+  headline?: string;
+
+  @Field({ nullable: true })
+  offerMessage?: string;
+
+  @Field({ nullable: true })
+  ctaUrl?: string;
 }
 
 @InputType()

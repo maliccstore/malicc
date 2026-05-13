@@ -4,7 +4,7 @@ import { requireAdmin } from "../../../middlewares/adminAuth";
 import { Context } from "../context";
 import {  WhatsAppCampaignResponse, WhatsAppCampaignsResponse } from "../schemas/whatsapp.schema";
 import { SendWhatsAppCampaignInput, SendProductAnnouncementInput, CampaignFilterInput } from "../inputs/WhatsAppCampaign.input";
-import { WhatsAppCampaign, MessageType, CampaignStatus } from "../../../models/WhatsAppCampaign";
+import { WhatsAppCampaign, MessageType } from "../../../models/WhatsAppCampaign";
 import { WhatsAppCampaignRecipient } from "../../../models/WhatsAppCampaignRecipient";
 import WhatsAppService from "../../../service/whatsapp.service";
 import User from "../../../models/UserModel";
@@ -28,7 +28,11 @@ export class AdminMarketingResolver {
         messageType: MessageType.PROMOTIONAL,
         createdBy: parseInt(context.user!.id, 10),
         productId: input.productId,
-        bannerImage: input.bannerImage,
+        bannerImageUrl: input.bannerImageUrl,
+        headline: input.headline,
+        offerMessage: input.offerMessage,
+        ctaUrl: input.ctaUrl,
+        language: input.templateLanguage || "en_US",
       });
 
       // 2. Resolve recipients
@@ -102,6 +106,7 @@ export class AdminMarketingResolver {
         messageType: MessageType.PRODUCT_ANNOUNCEMENT,
         createdBy: parseInt(context.user!.id, 10),
         productId: input.productId,
+        language: "en_US", // Product announcements default to en_US for now or add to input
       });
 
       // 2. Resolve recipients
