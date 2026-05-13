@@ -84,6 +84,7 @@ export class OrderService {
     // 2. Start Transaction
     const transaction = await Order.sequelize!.transaction();
 
+    let order: Order;
     try {
       // 3. Create Order Snapshot
       const addressSnapshot = address.toJSON();
@@ -119,7 +120,7 @@ export class OrderService {
         couponId = coupon.id;
       }
 
-      const order = await Order.create(
+      order = await Order.create(
         {
           userId,
           addressId,
@@ -196,13 +197,6 @@ export class OrderService {
       cart.totalItems = 0;
       await cart.save({ transaction });
 
-      await transaction.commit();
-
-      // Reload order with items
-      const finalOrder = (await Order.findByPk(order.id, {
-        include: [OrderItem],
-      })) as Order;
-
       // 🎯 Emit order.created event
       await EventService.emit({
         eventType: EVENTS.ORDER_CREATED,
@@ -210,19 +204,29 @@ export class OrderService {
         userId: userId,
         sessionId: sessionId,
         payload: {
-          id: finalOrder.id,
-          totalAmount: finalOrder.totalAmount,
-          items: finalOrder.items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
-          paymentMethod: finalOrder.paymentMethod,
+          id: order.id,
+          totalAmount: order.totalAmount,
+          items: cart.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+          })),
+          paymentMethod: order.paymentMethod,
         },
         transaction,
       });
 
-      return finalOrder;
+      await transaction.commit();
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       throw error;
     }
+
+    // Reload order with items
+    const finalOrder = (await Order.findByPk(order.id, {
+      include: [OrderItem],
+    })) as Order;
+
+    return finalOrder;
   }
 
   async getUserOrders(userId: number): Promise<Order[]> {
@@ -357,7 +361,7 @@ export class OrderService {
       await transaction.commit();
       console.log(`✅ Restored inventory for order ${orderId}`);
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       console.error(`❌ Failed to restore inventory for order ${orderId}:`, error);
       throw error;
     }
@@ -408,7 +412,7 @@ export class OrderService {
       await transaction.commit();
       console.log(`✅ Re-deducted inventory for retried order ${orderId}`);
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       console.error(`❌ Failed to deduct inventory for order ${orderId}:`, error);
       throw error;
     }
