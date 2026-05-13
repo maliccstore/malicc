@@ -41,6 +41,7 @@ interface WhatsAppCampaignAttributes {
   headline?: string;
   offerMessage?: string;
   ctaUrl?: string;
+  couponCode?: string;
   language: string;
   createdAt: Date;
   updatedAt: Date;
@@ -122,6 +123,10 @@ export class WhatsAppCampaign extends Model<
   @AllowNull(true)
   @Column(DataType.STRING(1000))
   public ctaUrl?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING)
+  public couponCode?: string;
 
   @Default("en_US")
   @Column(DataType.STRING(10))

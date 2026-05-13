@@ -32,6 +32,7 @@ export class AdminMarketingResolver {
         headline: input.headline,
         offerMessage: input.offerMessage,
         ctaUrl: input.ctaUrl,
+        couponCode: input.couponCode,
         language: input.templateLanguage || "en_US",
       });
 

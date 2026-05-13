@@ -49,6 +49,9 @@ export class WhatsAppCampaignSchema {
 
   @Field({ nullable: true })
   ctaUrl?: string;
+
+  @Field({ nullable: true })
+  couponCode?: string;
 }
 
 @ObjectType()

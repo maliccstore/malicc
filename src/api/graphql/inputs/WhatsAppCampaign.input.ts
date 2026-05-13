@@ -58,6 +58,9 @@ export class SendWhatsAppCampaignInput {
 
   @Field({ nullable: true })
   ctaUrl?: string;
+
+  @Field({ nullable: true })
+  couponCode?: string;
 }
 
 @InputType()

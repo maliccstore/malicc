@@ -98,11 +98,9 @@ class WhatsAppService {
     to: string,
     templateName: string,
     data: {
-      title: string;
+      customerName: string;
+      couponCode: string;
       bannerImageUrl?: string;
-      headline?: string;
-      offerMessage?: string;
-      ctaUrl?: string;
       language?: string;
     },
   ): Promise<{ messageId?: string; error?: string }> {
@@ -119,10 +117,12 @@ class WhatsAppService {
         template: {
           name: templateName,
           language: {
-            code: data.language || "en_US",
+            code: data.language || "en",
           },
         },
       };
+
+      console.log("payload.to", payload.to);
 
       const response = await fetch(this.apiUrl, {
         method: "POST",
@@ -143,6 +143,7 @@ class WhatsAppService {
 
       return { messageId: responseData.messages?.[0]?.id || "success" };
     } catch (error: any) {
+      console.error("WhatsApp Service Error:", error);
       return { error: error.message || "Failed to send message" };
     }
   }
@@ -166,23 +167,10 @@ class WhatsAppService {
         // Rate limiting: sleep slightly between messages to respect Meta API limits
         await new Promise((resolve) => setTimeout(resolve, 100)); // 10 messages/sec roughly
 
-        const components: any[] = [];
-        // Extract variables logic can be added here depending on template structure, e.g., mapping user details
-        if (campaign.bannerImageUrl) {
-          components.push({
-            type: "header",
-            parameters: [
-              {
-                type: "image",
-                image: {
-                  link: campaign.bannerImageUrl.startsWith("http")
-                    ? campaign.bannerImageUrl
-                    : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`,
-                },
-              },
-            ],
-          });
-        }
+        // Fetch user to get customer name
+        const user = await User.findByPk(recipient.userId);
+        const customerName = user?.username || "Customer";
+        const couponCode = campaign.couponCode || "";
 
         // Simple retry mechanism (up to 3 tries)
         let sent = false;
@@ -202,15 +190,30 @@ class WhatsAppService {
               recipient.phoneNumber,
               campaign.messageTemplate,
               {
-                title: campaign.title,
+                customerName,
+                couponCode,
                 bannerImageUrl: fullBannerImageUrl,
-                headline: campaign.headline,
-                offerMessage: campaign.offerMessage,
-                ctaUrl: campaign.ctaUrl,
                 language: campaign.language,
               },
             );
           } else {
+            const components: any[] = [];
+            if (campaign.bannerImageUrl) {
+              components.push({
+                type: "header",
+                parameters: [
+                  {
+                    type: "image",
+                    image: {
+                      link: campaign.bannerImageUrl.startsWith("http")
+                        ? campaign.bannerImageUrl
+                        : `${appConfig.FRONTEND_URL || "https://example.com"}${campaign.bannerImageUrl}`,
+                    },
+                  },
+                ],
+              });
+            }
+
             result = await this.sendTemplateMessage(
               recipient.phoneNumber,
               campaign.messageTemplate,
