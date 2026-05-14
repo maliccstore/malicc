@@ -16,6 +16,7 @@ import { CustomerType } from "../enums/CustomerType";
 import { PurchaseActivity } from "../enums/PurchaseActivity";
 import { UserRole } from "../enums/UserRole";
 import { usageService } from "./usage.service";
+import { usageSyncService } from "./usage-sync.service";
 import { EventService, EVENTS } from "../events";
 
 class WhatsAppService {
@@ -89,6 +90,10 @@ class WhatsAppService {
         return { error: data.error?.message || "Unknown Meta API Error" };
       }
 
+      // Track billable WhatsApp message usage
+      usageService.incrementWhatsAppMessages(1);
+      usageSyncService.syncToHQ().catch(() => {});
+
       return { messageId: data.messages[0].id };
     } catch (error: any) {
       return { error: error.message || "Failed to send message" };
@@ -123,7 +128,6 @@ class WhatsAppService {
         },
       };
 
-      console.log("payload.to", payload.to);
 
       const response = await fetch(this.apiUrl, {
         method: "POST",
@@ -142,9 +146,12 @@ class WhatsAppService {
         };
       }
 
+      // Track billable WhatsApp message usage
+      usageService.incrementWhatsAppMessages(1);
+      usageSyncService.syncToHQ().catch(() => {});
+
       return { messageId: responseData.messages?.[0]?.id || "success" };
     } catch (error: any) {
-      console.error("WhatsApp Service Error:", error);
       return { error: error.message || "Failed to send message" };
     }
   }
@@ -240,6 +247,7 @@ class WhatsAppService {
           successCount++;
           // Track billable WhatsApp message usage
           usageService.incrementWhatsAppMessages(1);
+          usageSyncService.syncToHQ().catch(() => {});
         } else {
           recipient.deliveryStatus = DeliveryStatus.FAILED;
           recipient.errorMessage = lastError;
@@ -285,9 +293,7 @@ class WhatsAppService {
 
   public async startCampaignQueue(campaignId: number): Promise<void> {
     // Fire and forget, runs in the background
-    this.processCampaign(campaignId).catch((err) => {
-      console.error(`Failed to process campaign ${campaignId}:`, err);
-    });
+    this.processCampaign(campaignId).catch((err) => {});
   }
 
   public async estimateAudience(filters: {

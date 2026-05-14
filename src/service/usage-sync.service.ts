@@ -56,13 +56,9 @@ export class UsageSyncService {
    */
   public async syncToHQ(): Promise<void> {
     if (!this.isConfigured()) {
-      console.warn(
-        "[UsageSyncService] HQ_USAGE_ENDPOINT or EVENT_BRIDGE_SECRET not set — skipping sync."
-      );
       return;
     }
 
-    console.log("[UsageSyncService] Starting usage sync to malicc-hq...");
 
     // 1. Flush today's in-memory metrics before reading unsynced rows
     await usageService.flushToDb();
@@ -71,13 +67,9 @@ export class UsageSyncService {
     const unsynced = await usageService.getUnsyncedSnapshots();
 
     if (unsynced.length === 0) {
-      console.log("[UsageSyncService] No unsynced snapshots to send.");
       return;
     }
 
-    console.log(
-      `[UsageSyncService] Found ${unsynced.length} unsynced snapshot(s). Sending to HQ...`
-    );
 
     // 3. Build payload
     const payload: UsageSyncPayload = {
@@ -91,6 +83,7 @@ export class UsageSyncService {
         productCount: row.productCount,
       })),
     };
+
 
     // 4. POST to malicc-hq
     let responseOk = false;
@@ -107,19 +100,11 @@ export class UsageSyncService {
 
       if (response.ok) {
         responseOk = true;
-        console.log(
-          `[UsageSyncService] HQ acknowledged ${unsynced.length} snapshot(s).`
-        );
       } else {
-        const errorBody = await response.text().catch(() => "(no body)");
-        console.error(
-          `[UsageSyncService] HQ returned HTTP ${response.status}: ${errorBody}`
-        );
+        // Fail silently
       }
     } catch (err: any) {
-      console.error(
-        `[UsageSyncService] Network error while syncing to HQ: ${err.message}`
-      );
+      // Fail silently
     }
 
     // 5. Mark rows as synced only on success
@@ -130,10 +115,6 @@ export class UsageSyncService {
       await UsageSnapshot.update(
         { syncedAt: now },
         { where: { id: ids } }
-      );
-
-      console.log(
-        `[UsageSyncService] Marked ${ids.length} snapshot(s) as synced.`
       );
     }
   }

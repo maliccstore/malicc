@@ -60,13 +60,8 @@ export class UsageService {
   private async ensureDayIsCurrent(): Promise<void> {
     const currentDate = this.today();
     if (this.buffer.date !== currentDate) {
-      console.log(
-        `[UsageService] Day rolled over from ${this.buffer.date} → ${currentDate}. Flushing old buffer.`
-      );
       // Flush old day before resetting — don't await to keep callers non-blocking
-      this.flushToDb().catch((err) =>
-        console.error("[UsageService] Flush on day-rollover failed:", err)
-      );
+      this.flushToDb().catch(() => {});
       this.buffer = this.createEmptyBuffer();
     }
   }
@@ -141,11 +136,8 @@ export class UsageService {
       await this.ensureDayIsCurrent();
       const bytes = this.calculateDirSize(this.uploadsRoot);
       this.buffer.storageBytes = bytes;
-      console.log(
-        `[UsageService] Storage refreshed: ${bytes.toLocaleString()} bytes`
-      );
     } catch (err) {
-      console.error("[UsageService] Failed to refresh storage bytes:", err);
+      // Fail silently
     }
   }
 
@@ -158,7 +150,7 @@ export class UsageService {
       const count = await Product.count({ where: { isActive: true } });
       this.buffer.productCount = count;
     } catch (err) {
-      console.error("[UsageService] Failed to refresh product count:", err);
+      // Fail silently
     }
   }
 
@@ -175,7 +167,6 @@ export class UsageService {
    */
   public async flushToDb(): Promise<void> {
     if (this.flushing) {
-      console.log("[UsageService] Flush already in progress, skipping.");
       return;
     }
 
@@ -201,6 +192,7 @@ export class UsageService {
             existing.whatsappMessages + this.buffer.whatsappMessages,
           ordersCount: existing.ordersCount + this.buffer.ordersCount,
           productCount: this.buffer.productCount,
+          syncedAt: null, // Reset sync status so HQ picks up the new deltas
         });
 
         // Reset incremental counters in buffer after merging into DB
@@ -226,9 +218,8 @@ export class UsageService {
         this.buffer.ordersCount = 0;
       }
 
-      console.log(`[UsageService] Flushed usage snapshot for ${date}`);
     } catch (err) {
-      console.error("[UsageService] flushToDb failed:", err);
+      // Fail silently
     } finally {
       this.flushing = false;
     }

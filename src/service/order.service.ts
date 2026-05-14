@@ -16,6 +16,7 @@ import { Coupon } from "../models/Coupon";
 import User from "../models/UserModel";
 import { EventService, EVENTS } from "../events";
 import { usageService } from "./usage.service";
+import { usageSyncService } from "./usage-sync.service";
 
 @Service()
 export class OrderService {
@@ -225,6 +226,7 @@ export class OrderService {
     // Track billable order usage for COD (goes straight to PAID on creation)
     if (paymentMethod === "COD") {
       usageService.incrementOrders(1);
+      usageSyncService.syncToHQ().catch(() => {});
     }
 
     // Reload order with items
@@ -295,6 +297,7 @@ export class OrderService {
       order.paymentMethod !== "COD"
     ) {
       usageService.incrementOrders(1);
+      usageSyncService.syncToHQ().catch(() => {});
     }
 
     /**

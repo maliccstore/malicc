@@ -2,6 +2,8 @@ import { StorageProvider } from "../storage/storage.interface";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import sharp from "sharp";
+import { usageService } from "./usage.service";
+import { usageSyncService } from "./usage-sync.service";
 
 export class UploadService {
   private readonly allowedMimeTypes = [
@@ -46,6 +48,11 @@ export class UploadService {
       folder,
     );
 
+    // Refresh storage metrics and sync to HQ immediately
+    usageService.refreshStorageBytes().then(() => {
+      usageSyncService.syncToHQ().catch(() => {});
+    }).catch(() => {});
+
     // Return URL and filename
     return {
       url: `/${relativePath}`,
@@ -84,6 +91,11 @@ export class UploadService {
       filename,
       folder,
     );
+
+    // Refresh storage metrics and sync to HQ immediately
+    usageService.refreshStorageBytes().then(() => {
+      usageSyncService.syncToHQ().catch(() => {});
+    }).catch(() => {});
 
     // Return URL and filename
     return {
