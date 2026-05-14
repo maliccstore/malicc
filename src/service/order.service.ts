@@ -15,6 +15,7 @@ import { CouponService } from "./coupon.service";
 import { Coupon } from "../models/Coupon";
 import User from "../models/UserModel";
 import { EventService, EVENTS } from "../events";
+import { usageService } from "./usage.service";
 
 @Service()
 export class OrderService {
@@ -221,6 +222,11 @@ export class OrderService {
       throw error;
     }
 
+    // Track billable order usage for COD (goes straight to PAID on creation)
+    if (paymentMethod === "COD") {
+      usageService.incrementOrders(1);
+    }
+
     // Reload order with items
     const finalOrder = (await Order.findByPk(order.id, {
       include: [OrderItem],
@@ -276,6 +282,19 @@ export class OrderService {
         order.userId!,
         order.id,
       );
+    }
+
+    /**
+     * 📊 Track billable order usage for non-COD orders.
+     * COD orders are already tracked in createOrderFromCart.
+     * Retry scenarios (FAILED/CANCELLED → PAID) are also counted once here.
+     */
+    if (
+      status === OrderStatus.PAID &&
+      previousStatus !== OrderStatus.PAID &&
+      order.paymentMethod !== "COD"
+    ) {
+      usageService.incrementOrders(1);
     }
 
     /**

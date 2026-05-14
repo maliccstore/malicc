@@ -15,6 +15,7 @@ import { OrderStatus } from "../enums/OrderStatus";
 import { CustomerType } from "../enums/CustomerType";
 import { PurchaseActivity } from "../enums/PurchaseActivity";
 import { UserRole } from "../enums/UserRole";
+import { usageService } from "./usage.service";
 import { EventService, EVENTS } from "../events";
 
 class WhatsAppService {
@@ -237,6 +238,8 @@ class WhatsAppService {
           recipient.metaMessageId = metaId;
           recipient.sentAt = new Date();
           successCount++;
+          // Track billable WhatsApp message usage
+          usageService.incrementWhatsAppMessages(1);
         } else {
           recipient.deliveryStatus = DeliveryStatus.FAILED;
           recipient.errorMessage = lastError;

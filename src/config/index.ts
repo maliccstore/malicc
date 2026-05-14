@@ -38,6 +38,11 @@ interface AppConfig {
   META_WHATSAPP_API_VERSION?: string;
   META_WHATSAPP_WEBHOOK_VERIFY_TOKEN?: string;
   FRONTEND_URL?: string;
+
+  // Usage Tracking & Sync
+  STORE_ID: string;
+  EVENT_BRIDGE_SECRET?: string;
+  HQ_USAGE_ENDPOINT?: string;
 }
 
 // Validate required environment variables
@@ -94,6 +99,11 @@ const appConfig: AppConfig = {
   META_WHATSAPP_API_VERSION: process.env.META_WHATSAPP_API_VERSION || 'v25.0',
   META_WHATSAPP_WEBHOOK_VERIFY_TOKEN: process.env.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN,
   FRONTEND_URL: process.env.FRONTEND_URL,
+
+  // Usage Tracking & Sync
+  STORE_ID: process.env.STORE_ID || "malicc_default",
+  EVENT_BRIDGE_SECRET: process.env.EVENT_BRIDGE_SECRET,
+  HQ_USAGE_ENDPOINT: process.env.HQ_USAGE_ENDPOINT,
 };
 
 export default appConfig;

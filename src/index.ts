@@ -34,6 +34,8 @@ import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
 import whatsappRoutes from "./api/routes/whatsapp.routes";
+import { UsageSyncJob } from "./jobs/usageSync.job";
+import requestSniffer from "./middlewares/requestsniffer";
 // WebSocket subscription support
 import { execute, subscribe } from "graphql";
 import { WebSocketServer } from "ws";
@@ -83,6 +85,9 @@ async function bootstrap() {
 
   // cookie-parser
   app.use(cookieParser());
+
+  // Bandwidth tracking middleware — must be before all routes
+  app.use(requestSniffer);
   // ✅ CORS Configuration - Handled in Node.js
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
@@ -230,6 +235,7 @@ bootstrap()
   .then(() => {
     CouponExpirationJob.start();
     OrderCleanupJob.start();
+    UsageSyncJob.start();
   })
   .catch((err) => {
     console.error("Bootstrap failed:", err);
