@@ -5,7 +5,8 @@ import { verifyWebhookSignature } from "../../service/razorpay.service";
 import { Transaction } from "../../models/Transaction";
 import { TransactionStatus } from "../../enums/TransactionStatus";
 import { OrderStatus } from "../../enums/OrderStatus";
-
+import appConfig from "../../config";
+import { WhatsAppCampaignRecipient, DeliveryStatus } from "../../models/WhatsAppCampaignRecipient";
 const router = Router();
 
 /**
@@ -168,6 +169,73 @@ router.post("/whatsapp", async (req, res) => {
     console.error("❌ WhatsApp webhook error:", error);
 
     return res.sendStatus(500);
+  }
+});
+
+/**
+ * WhatsApp Meta Webhook Handler
+ * GET /api/webhooks/whatsapp (Verification)
+ * POST /api/webhooks/whatsapp (Status Updates)
+ */
+router.get("/whatsapp", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+
+  if (mode && token) {
+    if (mode === "subscribe" && token === appConfig.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN) {
+      console.log("✅ WhatsApp Webhook Verified");
+      res.status(200).send(challenge);
+    } else {
+      res.sendStatus(403);
+    }
+  } else {
+    res.sendStatus(400);
+  }
+});
+
+router.post("/whatsapp", async (req, res) => {
+  const body = req.body;
+
+  if (body.object) {
+    if (
+      body.entry &&
+      body.entry[0].changes &&
+      body.entry[0].changes[0] &&
+      body.entry[0].changes[0].value.statuses
+    ) {
+      const statusObj = body.entry[0].changes[0].value.statuses[0];
+      const messageId = statusObj.id;
+      const status = statusObj.status; // 'sent', 'delivered', 'read', 'failed'
+      
+      try {
+        const recipient = await WhatsAppCampaignRecipient.findOne({ where: { metaMessageId: messageId } });
+        if (recipient) {
+          switch (status) {
+            case "sent":
+              recipient.deliveryStatus = DeliveryStatus.SENT;
+              break;
+            case "delivered":
+              recipient.deliveryStatus = DeliveryStatus.DELIVERED;
+              break;
+            case "read":
+              recipient.deliveryStatus = DeliveryStatus.READ;
+              break;
+            case "failed":
+              recipient.deliveryStatus = DeliveryStatus.FAILED;
+              recipient.errorMessage = JSON.stringify(statusObj.errors || "Failed");
+              break;
+          }
+          await recipient.save();
+          console.log(`🔔 WhatsApp Message ${messageId} status updated to ${status}`);
+        }
+      } catch (error) {
+        console.error("❌ Error updating WhatsApp message status:", error);
+      }
+    }
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
   }
 });
 

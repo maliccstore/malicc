@@ -30,6 +30,19 @@ interface AppConfig {
 
   // JWT
   JWT_SECRET: string;
+
+  // Meta WhatsApp Cloud API
+  META_WHATSAPP_ACCESS_TOKEN?: string;
+  META_WHATSAPP_PHONE_NUMBER_ID?: string;
+  META_WHATSAPP_BUSINESS_ACCOUNT_ID?: string;
+  META_WHATSAPP_API_VERSION?: string;
+  META_WHATSAPP_WEBHOOK_VERIFY_TOKEN?: string;
+  FRONTEND_URL?: string;
+
+  // Usage Tracking & Sync
+  STORE_ID: string;
+  EVENT_BRIDGE_SECRET?: string;
+  HQ_USAGE_ENDPOINT?: string;
 }
 
 // Validate required environment variables
@@ -79,6 +92,18 @@ const appConfig: AppConfig = {
         TWILIO_API_SID: process.env.TWILIO_API_SID!,
         TWILIO_API_SECRET: process.env.TWILIO_API_SECRET!,
       }),
+      
+  META_WHATSAPP_ACCESS_TOKEN: (process.env.META_WHATSAPP_ACCESS_TOKEN || "").replace(/['"]/g, "").trim(),
+  META_WHATSAPP_PHONE_NUMBER_ID: (process.env.META_WHATSAPP_PHONE_NUMBER_ID || "").replace(/['"]/g, "").trim(),
+  META_WHATSAPP_BUSINESS_ACCOUNT_ID: (process.env.META_WHATSAPP_BUSINESS_ACCOUNT_ID || "").replace(/['"]/g, "").trim(),
+  META_WHATSAPP_API_VERSION: process.env.META_WHATSAPP_API_VERSION || 'v25.0',
+  META_WHATSAPP_WEBHOOK_VERIFY_TOKEN: process.env.META_WHATSAPP_WEBHOOK_VERIFY_TOKEN,
+  FRONTEND_URL: process.env.FRONTEND_URL,
+
+  // Usage Tracking & Sync
+  STORE_ID: process.env.STORE_ID || "malicc_default",
+  EVENT_BRIDGE_SECRET: process.env.EVENT_BRIDGE_SECRET,
+  HQ_USAGE_ENDPOINT: process.env.HQ_USAGE_ENDPOINT,
 };
 
 export default appConfig;

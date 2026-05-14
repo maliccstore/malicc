@@ -32,10 +32,13 @@ import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
+import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
+import whatsappRoutes from "./api/routes/whatsapp.routes";
+import { UsageSyncJob } from "./jobs/usageSync.job";
+import requestSniffer from "./middlewares/requestsniffer";
 // WebSocket subscription support
 import { execute, subscribe } from "graphql";
 import { WebSocketServer } from "ws";
-import { makeServer } from "graphql-ws";
 const { useServer } = require("graphql-ws/use/ws");
 import { pubsub } from "./realtime/pubsub";
 
@@ -62,6 +65,7 @@ async function bootstrap() {
       PaymentResolver,
       ReviewResolver,
       AnalyticsResolver,
+      AdminMarketingResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -81,6 +85,9 @@ async function bootstrap() {
 
   // cookie-parser
   app.use(cookieParser());
+
+  // Bandwidth tracking middleware — must be before all routes
+  app.use(requestSniffer);
   // ✅ CORS Configuration - Handled in Node.js
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
@@ -115,6 +122,9 @@ async function bootstrap() {
   // Apply CORS to all routes
   app.use(cors(corsOptions));
 
+  // Parse JSON bodies for REST routes
+  app.use(express.json());
+
   // Session Middleware
   app.use(sessionMiddleware);
 
@@ -123,6 +133,9 @@ async function bootstrap() {
 
   // Webhook Routes
   app.use("/api/webhooks", webhookRoutes);
+
+  // WhatsApp Marketing Routes
+  app.use("/api/whatsapp", whatsappRoutes);
 
   // Static File Serving for uploads
   app.use(
@@ -133,7 +146,6 @@ async function bootstrap() {
   // GraphQL endpoint
   app.use(
     "/graphql",
-    express.json(),
     expressMiddleware(apolloServer, {
       context: async ({ req, res }) => {
         const token = getTokenFromRequest(req);
@@ -223,6 +235,7 @@ bootstrap()
   .then(() => {
     CouponExpirationJob.start();
     OrderCleanupJob.start();
+    UsageSyncJob.start();
   })
   .catch((err) => {
     console.error("Bootstrap failed:", err);

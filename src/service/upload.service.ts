@@ -2,6 +2,8 @@ import { StorageProvider } from "../storage/storage.interface";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import sharp from "sharp";
+import { usageService } from "./usage.service";
+import { usageSyncService } from "./usage-sync.service";
 
 export class UploadService {
   private readonly allowedMimeTypes = [
@@ -45,6 +47,55 @@ export class UploadService {
       filename,
       folder,
     );
+
+    // Refresh storage metrics and sync to HQ immediately
+    usageService.refreshStorageBytes().then(() => {
+      usageSyncService.syncToHQ().catch(() => {});
+    }).catch(() => {});
+
+    // Return URL and filename
+    return {
+      url: `/${relativePath}`,
+      filename: filename,
+    };
+  }
+
+  async uploadCampaignBanner(
+    fileBuffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    fileSize: number,
+  ): Promise<{ url: string; filename: string }> {
+    // Validate file type
+    if (!this.allowedMimeTypes.includes(mimeType)) {
+      throw new Error("Invalid file type. Only jpg, jpeg, png, and webp are allowed.");
+    }
+
+    // Validate file size
+    if (fileSize > this.maxFileSize) {
+      throw new Error("File size exceeds 5MB limit.");
+    }
+
+    // Generate UUID filename with .webp extension
+    const filename = `${uuidv4()}.webp`;
+    const folder = "uploads/campaigns";
+
+    // Convert to WebP using sharp
+    const webpBuffer = await sharp(fileBuffer)
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    // Save using storage provider
+    const relativePath = await this.storageProvider.save(
+      webpBuffer,
+      filename,
+      folder,
+    );
+
+    // Refresh storage metrics and sync to HQ immediately
+    usageService.refreshStorageBytes().then(() => {
+      usageSyncService.syncToHQ().catch(() => {});
+    }).catch(() => {});
 
     // Return URL and filename
     return {
