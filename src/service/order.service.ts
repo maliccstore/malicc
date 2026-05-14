@@ -14,6 +14,9 @@ import { FulfillmentStatus } from "../enums/FulfillmentStatus";
 import { CouponService } from "./coupon.service";
 import { Coupon } from "../models/Coupon";
 import User from "../models/UserModel";
+import { EventService, EVENTS } from "../events";
+import { usageService } from "./usage.service";
+import { usageSyncService } from "./usage-sync.service";
 
 @Service()
 export class OrderService {
@@ -83,6 +86,7 @@ export class OrderService {
     // 2. Start Transaction
     const transaction = await Order.sequelize!.transaction();
 
+    let order: Order;
     try {
       // 3. Create Order Snapshot
       const addressSnapshot = address.toJSON();
@@ -118,7 +122,7 @@ export class OrderService {
         couponId = coupon.id;
       }
 
-      const order = await Order.create(
+      order = await Order.create(
         {
           userId,
           addressId,
@@ -195,16 +199,42 @@ export class OrderService {
       cart.totalItems = 0;
       await cart.save({ transaction });
 
-      await transaction.commit();
+      // 🎯 Emit order.created event
+      await EventService.emit({
+        eventType: EVENTS.ORDER_CREATED,
+        storeId: process.env.STORE_ID || "unknown",
+        userId: userId,
+        sessionId: sessionId,
+        payload: {
+          id: order.id,
+          totalAmount: order.totalAmount,
+          items: cart.items.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+          })),
+          paymentMethod: order.paymentMethod,
+        },
+        transaction,
+      });
 
-      // Reload order with items
-      return (await Order.findByPk(order.id, {
-        include: [OrderItem],
-      })) as Order;
+      await transaction.commit();
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       throw error;
     }
+
+    // Track billable order usage for COD (goes straight to PAID on creation)
+    if (paymentMethod === "COD") {
+      usageService.incrementOrders(1);
+      usageSyncService.syncToHQ().catch(() => {});
+    }
+
+    // Reload order with items
+    const finalOrder = (await Order.findByPk(order.id, {
+      include: [OrderItem],
+    })) as Order;
+
+    return finalOrder;
   }
 
   async getUserOrders(userId: number): Promise<Order[]> {
@@ -257,6 +287,20 @@ export class OrderService {
     }
 
     /**
+     * 📊 Track billable order usage for non-COD orders.
+     * COD orders are already tracked in createOrderFromCart.
+     * Retry scenarios (FAILED/CANCELLED → PAID) are also counted once here.
+     */
+    if (
+      status === OrderStatus.PAID &&
+      previousStatus !== OrderStatus.PAID &&
+      order.paymentMethod !== "COD"
+    ) {
+      usageService.incrementOrders(1);
+      usageSyncService.syncToHQ().catch(() => {});
+    }
+
+    /**
      * 🔄 Restore Inventory when:
      * - Status transitions TO FAILED or CANCELLED
      * - Previous status was NOT FAILED or CANCELLED
@@ -282,6 +326,21 @@ export class OrderService {
         previousStatus === OrderStatus.CANCELLED)
     ) {
       await this.deductOrderInventory(order.id);
+    }
+
+    /**
+     * 🎯 Emit order.cancelled event if status changed to CANCELLED
+     */
+    if (status === OrderStatus.CANCELLED && previousStatus !== OrderStatus.CANCELLED) {
+      await EventService.emit({
+        eventType: EVENTS.ORDER_CANCELLED,
+        storeId: process.env.STORE_ID || "unknown",
+        userId: order.userId || undefined,
+        payload: {
+          id: order.id,
+          previousStatus,
+        }
+      });
     }
 
     return order;
@@ -324,7 +383,7 @@ export class OrderService {
       await transaction.commit();
       console.log(`✅ Restored inventory for order ${orderId}`);
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       console.error(`❌ Failed to restore inventory for order ${orderId}:`, error);
       throw error;
     }
@@ -375,7 +434,7 @@ export class OrderService {
       await transaction.commit();
       console.log(`✅ Re-deducted inventory for retried order ${orderId}`);
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       console.error(`❌ Failed to deduct inventory for order ${orderId}:`, error);
       throw error;
     }

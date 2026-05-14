@@ -4,6 +4,11 @@ import { Op, Sequelize, literal } from "sequelize";
 import { Inventory } from "../models/Inventory";
 import { Category } from "../models/Category";
 import { Review } from "../models/Review";
+import { usageSyncService } from "./usage-sync.service";
+import { usageService } from "./usage.service";
+import fs from "fs/promises";
+import path from "path";
+import fsSync from "fs";
 
 @Service()
 export class ProductService {
@@ -35,7 +40,7 @@ export class ProductService {
       categoryId: productData.category,
     };
 
-    return await Product.sequelize!.transaction(async (transaction) => {
+    const product = await Product.sequelize!.transaction(async (transaction) => {
       // Create the product
       const product = await Product.create(dbPayload, { transaction });
 
@@ -53,6 +58,11 @@ export class ProductService {
 
       return product;
     });
+
+    // Sync usage data to HQ immediately
+    usageSyncService.syncToHQ().catch(() => {});
+
+    return product;
   }
 
   async getProductById(id: string): Promise<Product | null> {
@@ -263,6 +273,10 @@ export class ProductService {
     }
 
     await product.update(payload);
+
+    // Sync usage data to HQ immediately if isActive might have changed
+    usageSyncService.syncToHQ().catch(() => {});
+
     return product;
   }
 
@@ -272,7 +286,46 @@ export class ProductService {
       throw new Error(`Product with ID ${id} not found`);
     }
 
+    const imagePaths = product.imageUrl || [];
+
     await product.destroy();
+
+    // 1. Delete images from disk
+    for (const imgPath of imagePaths) {
+      try {
+        // If the path is a full URL, extract just the pathname (e.g. /uploads/products/...)
+        let cleanPath = imgPath;
+        if (imgPath.startsWith("http")) {
+          try {
+            const url = new URL(imgPath);
+            cleanPath = url.pathname;
+          } catch (e) {
+            // Fallback: if URL parsing fails, try to strip everything before /uploads
+            const uploadsIdx = imgPath.indexOf("/uploads");
+            if (uploadsIdx !== -1) {
+              cleanPath = imgPath.substring(uploadsIdx);
+            }
+          }
+        }
+
+        // Normalize path for Windows/Linux compatibility
+        const absolutePath = path.normalize(path.join(process.cwd(), "public", cleanPath));
+        
+        if (fsSync.existsSync(absolutePath)) {
+          await fs.unlink(absolutePath);
+        } else {
+          // Skip silently
+        }
+      } catch (err) {
+        // Fail silently
+      }
+    }
+
+    // 2. Refresh storage metrics and sync to HQ immediately
+    usageService.refreshStorageBytes().then(() => {
+      usageSyncService.syncToHQ().catch(() => {});
+    }).catch(() => {});
+
     return true;
   }
 
@@ -283,6 +336,10 @@ export class ProductService {
     }
 
     await product.update({ isActive: !product.isActive });
+
+    // Sync usage data to HQ immediately
+    usageSyncService.syncToHQ().catch(() => {});
+
     return product;
   }
 

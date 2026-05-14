@@ -1,6 +1,7 @@
 import { Service } from "typedi";
 import { Session } from "../models/Session";
 import { SessionData, CreateSessionInput } from "../interface/session";
+import { EventService, EVENTS } from "../events";
 
 @Service()
 export class SessionService {
@@ -40,6 +41,19 @@ export class SessionService {
       lastAccessed: new Date(),
       userAgent: input.userAgent,
       ipAddress: input.ipAddress,
+    });
+
+    // 🎯 Emit session.started event
+    await EventService.emit({
+      eventType: EVENTS.SESSION_STARTED,
+      storeId: process.env.STORE_ID || "unknown",
+      userId: input.userId ? Number(input.userId) : undefined,
+      sessionId: session.sessionId,
+      payload: {
+        guestId: session.guestId,
+        userRole: session.userRole,
+        ipAddress: session.ipAddress,
+      },
     });
 
     return this.mapToSessionData(session);
@@ -121,6 +135,18 @@ export class SessionService {
     const result = await Session.destroy({
       where: { sessionId },
     });
+
+    if (result > 0) {
+      // 🎯 Emit session.ended event
+      await EventService.emit({
+        eventType: EVENTS.SESSION_ENDED,
+        storeId: process.env.STORE_ID || "unknown",
+        sessionId: sessionId,
+        payload: {
+          sessionId,
+        },
+      });
+    }
 
     return result > 0;
   }
