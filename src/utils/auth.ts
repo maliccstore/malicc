@@ -56,7 +56,7 @@ export function verifyToken(token: string): ContextUser {
   return payload as ContextUser;
 }
 
-export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
+export const authChecker: AuthChecker<GraphQLContext, UserRole> = async (
   { context },
   roles, // Typescript will now enforce that these are valid UserRole values
 ) => {
@@ -66,18 +66,28 @@ export const authChecker: AuthChecker<GraphQLContext, UserRole> = (
     throw new Error("Not authenticated");
   }
 
+  // Fetch the latest user from the DB to avoid stale/undefined roles (similar to adminRestAuth middleware)
+  const dbUser = await User.findByPk(context.user.id);
+  if (!dbUser) {
+    throw new Error("User not found");
+  }
+
+  const userRole = String(dbUser.role).toLowerCase();
+
   // 2. Check Authorization (does the user have the right role?)
   if (roles.length > 0) {
-    // Check if the user's role (from context) is included in the required roles list
-    // Assuming context.user.role is a single string like "admin" or "customer"
-    if (!roles.includes(context.user.role as UserRole)) {
+    // Check if the user's role (from DB) is included in the required roles list
+    const normalizedRoles = roles.map((r) => String(r).toLowerCase());
+    if (!normalizedRoles.includes(userRole)) {
       // User is authenticated but doesn't have the required role
-      // throw new ForbiddenError("Not authorized");
       throw new ForbiddenError(
         "You do not have permission to perform this action.",
       );
     }
   }
+
+  // Update the context user role to match the latest from DB
+  context.user.role = dbUser.role;
 
   // 3. If we get here, the user is authenticated and authorized!
   return true;

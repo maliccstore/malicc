@@ -34,6 +34,7 @@ import storeSettingsRoutes from "./api/routes/storeSettings.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
+import { HomepageResolver } from "./api/graphql/resolvers/Homepage.resolver";
 import whatsappRoutes from "./api/routes/whatsapp.routes";
 import { UsageSyncJob } from "./jobs/usageSync.job";
 import requestSniffer from "./middlewares/requestsniffer";
@@ -67,6 +68,7 @@ async function bootstrap() {
       ReviewResolver,
       AnalyticsResolver,
       AdminMarketingResolver,
+      HomepageResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -130,7 +132,7 @@ async function bootstrap() {
   app.use(sessionMiddleware);
 
   // Modular Upload Routes
-  app.use("/admin/uploads", uploadRoutes);
+  app.use("/api/admin/uploads", uploadRoutes);
 
   // Store Appearance Routes
   app.use("/api/admin/appearance", storeSettingsRoutes);
