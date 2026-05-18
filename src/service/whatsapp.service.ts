@@ -85,6 +85,7 @@ class WhatsAppService {
       });
 
       const data = (await response.json()) as any;
+      console.log("Meta API Response:", JSON.stringify(data, null, 2));
 
       if (!response.ok) {
         return { error: data.error?.message || "Unknown Meta API Error" };
@@ -125,9 +126,52 @@ class WhatsAppService {
           language: {
             code: data.language || "en",
           },
+          components: [
+            {
+              type: "header",
+              parameters: [
+                {
+                  type: "image",
+                  image: {
+                    link:
+                      data.bannerImageUrl ||
+                      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=80",
+                  },
+                },
+              ],
+            },
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  parameter_name: "name",
+                  text: data.customerName,
+                },
+                {
+                  type: "text",
+                  parameter_name: "coupon",
+                  text: data.couponCode,
+                },
+              ],
+            },
+            {
+              type: "button",
+              sub_type: "copy_code",
+              index: "0",
+              parameters: [
+                {
+                  type: "coupon_code",
+                  coupon_code: data.couponCode,
+                },
+              ],
+            },
+          ],
         },
       };
 
+      console.log(`[WhatsAppService] Sending template: "${templateName}" to ${payload.to}`);
+      console.log("[WhatsAppService] Full Payload:", JSON.stringify(payload, null, 2));
 
       const response = await fetch(this.apiUrl, {
         method: "POST",
@@ -139,6 +183,7 @@ class WhatsAppService {
       });
 
       const responseData = (await response.json()) as any;
+      console.log("Meta API Response:", JSON.stringify(responseData, null, 2));
 
       if (!response.ok) {
         return {
