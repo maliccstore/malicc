@@ -23,4 +23,10 @@ router.post(
   uploadController.uploadCampaignBanner,
 );
 
+router.post(
+  "/store-logo",
+  uploadController.uploadMiddleware,
+  uploadController.uploadStoreLogo,
+);
+
 export default router;

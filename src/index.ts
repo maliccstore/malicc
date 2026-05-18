@@ -30,6 +30,7 @@ import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
 import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
 import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
+import storeSettingsRoutes from "./api/routes/storeSettings.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
@@ -107,7 +108,7 @@ async function bootstrap() {
       }
     },
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -130,6 +131,9 @@ async function bootstrap() {
 
   // Modular Upload Routes
   app.use("/admin/uploads", uploadRoutes);
+
+  // Store Appearance Routes
+  app.use("/api/admin/appearance", storeSettingsRoutes);
 
   // Webhook Routes
   app.use("/api/webhooks", webhookRoutes);
@@ -228,7 +232,7 @@ async function bootstrap() {
 }
 
 bootstrap()
-  .then(() => sequelize.sync({ alter: true }))
+  .then(() => sequelize.sync())
   .then(() => {
     console.log("Database synced");
   })
