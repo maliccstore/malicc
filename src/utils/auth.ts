@@ -69,7 +69,8 @@ export const authChecker: AuthChecker<GraphQLContext, UserRole> = async (
   // Fetch the latest user from the DB to avoid stale/undefined roles (similar to adminRestAuth middleware)
   const dbUser = await User.findByPk(context.user.id);
   if (!dbUser) {
-    throw new Error("User not found");
+    console.error(`[AuthChecker Error] User not found on database. Request sent ID: ${context.user.id}. Context user:`, context.user);
+    throw new Error(`User not found (ID: ${context.user.id}). Please log out and log in again to acquire a fresh valid token.`);
   }
 
   const userRole = String(dbUser.role).toLowerCase();

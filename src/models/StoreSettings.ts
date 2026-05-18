@@ -11,12 +11,12 @@ import {
 } from "sequelize-typescript";
 import { Optional } from "sequelize";
 
-import { StoreSettingsType } from "../types/storeSettings";
+import { StoreSettingsType, HomepageConfig } from "../types/storeSettings";
 import { LogoPosition } from "../enums/LogoPosition";
 
 type StoreSettingsCreationAttributes = Optional<
   StoreSettingsType,
-  "id" | "createdAt" | "updatedAt" | "tagline" | "logo_url" | "logo_width" | "logo_position"
+  "id" | "createdAt" | "updatedAt" | "tagline" | "logo_url" | "logo_width" | "logo_position" | "homepage"
 >;
 
 @Table({
@@ -48,6 +48,10 @@ class StoreSettings extends Model<StoreSettingsType, StoreSettingsCreationAttrib
   @AllowNull(true)
   @Column(DataType.ENUM(...Object.values(LogoPosition)))
   public logo_position?: LogoPosition | null;
+
+  @AllowNull(true)
+  @Column(DataType.JSON)
+  public homepage?: HomepageConfig | null;
 
   @CreatedAt
   @Column(DataType.DATE)

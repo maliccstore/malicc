@@ -4,6 +4,7 @@ import { Op, Sequelize, literal } from "sequelize";
 import { Inventory } from "../models/Inventory";
 import { Category } from "../models/Category";
 import { Review } from "../models/Review";
+import { OrderItem } from "../models/OrderItem";
 import { usageSyncService } from "./usage-sync.service";
 import { usageService } from "./usage.service";
 import fs from "fs/promises";
@@ -382,6 +383,47 @@ export class ProductService {
     );
 
     return { totalReviews, averageRating };
+  }
+
+  async getAutoTopSellingProducts(limit: number): Promise<Product[]> {
+    const results = await OrderItem.findAll({
+      attributes: [
+        'productId',
+        [Sequelize.fn('SUM', Sequelize.col('quantity')), 'totalSold']
+      ],
+      group: ['productId'],
+      order: [[Sequelize.fn('SUM', Sequelize.col('quantity')), 'DESC']],
+      limit: limit,
+      raw: true
+    }) as any[];
+
+    if (!results.length) return [];
+
+    const productIds = results.map((r) => r.productId);
+    
+    const products = await Product.findAll({
+      where: { id: { [Op.in]: productIds }, isActive: true },
+      include: [Inventory]
+    });
+
+    // Reorder based on top-selling order
+    return products.sort((a, b) => productIds.indexOf(a.id) - productIds.indexOf(b.id));
+  }
+
+  async getManualTopSellingProducts(productIds: string[]): Promise<Product[]> {
+    return this.getProductsByIds(productIds);
+  }
+  
+  async getProductsByIds(productIds: string[]): Promise<Product[]> {
+    if (!productIds || productIds.length === 0) return [];
+    
+    const products = await Product.findAll({
+      where: { id: { [Op.in]: productIds }, isActive: true },
+      include: [Inventory]
+    });
+
+    // Preserve merchant-defined ordering
+    return products.sort((a, b) => productIds.indexOf(a.id) - productIds.indexOf(b.id));
   }
 
 }
