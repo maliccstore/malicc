@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./config"; // Load and validate environment variables first!
 import { formatGraphQLError } from "./utils/errorHandler";
 import path from "path";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
@@ -9,7 +10,6 @@ import { authChecker, getTokenFromRequest, verifyToken } from "./utils/auth";
 import { OTPResolver } from "./api/graphql/resolvers/OTP.resolver";
 import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
-import dotenv from "dotenv";
 import { buildSchema } from "type-graphql";
 import sequelize from "./config/database";
 import Container from "typedi";
@@ -45,7 +45,6 @@ const { useServer } = require("graphql-ws/use/ws");
 import { pubsub } from "./realtime/pubsub";
 
 async function bootstrap() {
-  dotenv.config();
   const app: Express = express();
   const port = process.env.PORT;
 

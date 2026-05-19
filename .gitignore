@@ -5,6 +5,7 @@ eslint.config.mjs
 .env
 .env.development
 .env.production
+!.env.example
 
 Dockerfile.prod
 DOCKERFILE
@@ -13,3 +14,7 @@ Dockerfile.dev
 # Uploads
 public/uploads/products/*
 !public/uploads/products/.gitkeep
+public/uploads/banners/*
+!public/uploads/banners/.gitkeep
+public/uploads/store/*
+!public/uploads/store/.gitkeep
