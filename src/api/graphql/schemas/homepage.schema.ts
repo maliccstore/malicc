@@ -121,6 +121,9 @@ export class StorefrontHomepagePayload {
 
 @InputType()
 export class BannerInput {
+  @Field({ nullable: true })
+  id?: string;
+
   @Field()
   image!: string;
 
