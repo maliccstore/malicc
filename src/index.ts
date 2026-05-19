@@ -36,6 +36,7 @@ import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
 import { HomepageResolver } from "./api/graphql/resolvers/Homepage.resolver";
 import whatsappRoutes from "./api/routes/whatsapp.routes";
+import usageRoutes from "./api/routes/usage.routes";
 import { UsageSyncJob } from "./jobs/usageSync.job";
 import requestSniffer from "./middlewares/requestsniffer";
 // WebSocket subscription support
@@ -135,6 +136,9 @@ async function bootstrap() {
 
   // Store Appearance Routes
   app.use("/api/admin/appearance", storeSettingsRoutes);
+
+  // Usage Routes
+  app.use("/api/admin/usage", usageRoutes);
 
   // Webhook Routes
   app.use("/api/webhooks", webhookRoutes);
