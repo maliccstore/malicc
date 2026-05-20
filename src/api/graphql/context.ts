@@ -59,12 +59,13 @@ export const createContext = async ({
 
       session = newSession;
       sessionId = session.sessionId;
-
+      const isProduction = process.env.NODE_ENV === "production";
       res.cookie("sessionId", session.sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        secure: isProduction,
+        sameSite: isProduction ? "none" : "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/",
       });
     }
 
@@ -74,7 +75,7 @@ export const createContext = async ({
       const convertedSession = await sessionService.convertToUserSession(
         session.sessionId,
         user.id,
-        user.role
+        user.role,
       );
 
       // Transfer cart as well
