@@ -267,6 +267,65 @@ export class UsageService {
       order: [["date", "ASC"]],
     });
   }
+
+  /**
+   * Returns the last N days of usage snapshots.
+   */
+  public async getSnapshots(days = 30): Promise<UsageSnapshot[]> {
+    await this.flushToDb();
+    return UsageSnapshot.findAll({
+      order: [["date", "DESC"]],
+      limit: days,
+    });
+  }
+
+  /**
+   * Returns aggregated totals within a date range.
+   */
+  public async getSnapshotSummary(
+    fromDate: string,
+    toDate: string
+  ): Promise<{
+    totalStorageBytes: string;
+    totalBandwidthBytes: string;
+    totalWhatsappMessages: number;
+    totalOrdersCount: number;
+    currentProductCount: number;
+    daysReported: number;
+  }> {
+    await this.flushToDb();
+    const rows = await UsageSnapshot.findAll({
+      where: {
+        date: { [Op.between]: [fromDate, toDate] },
+      },
+    });
+
+    const sortedRows = [...rows].sort((a, b) => a.date.localeCompare(b.date));
+
+    const summary = sortedRows.reduce(
+      (acc, row) => {
+        acc.totalBandwidthBytes = (
+          BigInt(acc.totalBandwidthBytes) + BigInt(row.bandwidthBytes || "0")
+        ).toString();
+        acc.totalWhatsappMessages += row.whatsappMessages || 0;
+        acc.totalOrdersCount += row.ordersCount || 0;
+        acc.totalStorageBytes = row.storageBytes || acc.totalStorageBytes;
+        acc.currentProductCount = row.productCount || acc.currentProductCount;
+        acc.daysReported++;
+        return acc;
+      },
+      {
+        totalStorageBytes: "0",
+        totalBandwidthBytes: "0",
+        totalWhatsappMessages: 0,
+        totalOrdersCount: 0,
+        currentProductCount: 0,
+        daysReported: 0,
+      }
+    );
+
+    return summary;
+  }
 }
 
 // Export singleton instance — injected into all callers

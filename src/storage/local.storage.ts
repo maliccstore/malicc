@@ -19,4 +19,18 @@ export class LocalStorageProvider implements StorageProvider {
     // Return the relative path for URL generation
     return path.join(folder, filename).replace(/\\/g, "/");
   }
+
+  async delete(filePath: string): Promise<void> {
+    try {
+      // Clean up the URL format path to filesystem path
+      const cleanPath = filePath.replace(/^\//, ''); // Remove leading slash if any
+      const absolutePath = path.join(this.uploadRoot, cleanPath);
+      
+      if (fsSync.existsSync(absolutePath)) {
+        await fs.unlink(absolutePath);
+      }
+    } catch (error) {
+      console.error(`Failed to delete file ${filePath}:`, error);
+    }
+  }
 }
