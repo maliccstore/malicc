@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import "./config"; // Load and validate environment variables first!
 import { formatGraphQLError } from "./utils/errorHandler";
 import path from "path";
 import { HealthResolver } from "./api/graphql/resolvers/Health.resolver";
@@ -9,7 +10,6 @@ import { authChecker, getTokenFromRequest, verifyToken } from "./utils/auth";
 import { OTPResolver } from "./api/graphql/resolvers/OTP.resolver";
 import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
-import dotenv from "dotenv";
 import { buildSchema } from "type-graphql";
 import sequelize from "./config/database";
 import Container from "typedi";
@@ -30,10 +30,13 @@ import { PaymentResolver } from "./api/graphql/resolvers/Payment.resolver";
 import { ReviewResolver } from "./api/graphql/resolvers/review.resolver";
 import uploadRoutes from "./api/routes/upload.routes";
 import webhookRoutes from "./api/routes/webhook.routes";
+import storeSettingsRoutes from "./api/routes/storeSettings.routes";
 import { OrderCleanupJob } from "./jobs/OrderCleanup.job";
 import { AnalyticsResolver } from "./api/graphql/resolvers/Analytics.resolver";
 import { AdminMarketingResolver } from "./api/graphql/resolvers/AdminMarketing.resolver";
+import { HomepageResolver } from "./api/graphql/resolvers/Homepage.resolver";
 import whatsappRoutes from "./api/routes/whatsapp.routes";
+import usageRoutes from "./api/routes/usage.routes";
 import { UsageSyncJob } from "./jobs/usageSync.job";
 import requestSniffer from "./middlewares/requestsniffer";
 // WebSocket subscription support
@@ -43,7 +46,6 @@ const { useServer } = require("graphql-ws/use/ws");
 import { pubsub } from "./realtime/pubsub";
 
 async function bootstrap() {
-  dotenv.config();
   const app: Express = express();
   const port = process.env.PORT;
 
@@ -66,6 +68,7 @@ async function bootstrap() {
       ReviewResolver,
       AnalyticsResolver,
       AdminMarketingResolver,
+      HomepageResolver,
     ],
     authChecker: authChecker,
     validate: { forbidUnknownValues: false },
@@ -107,7 +110,7 @@ async function bootstrap() {
       }
     },
     credentials: true,
-    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
     allowedHeaders: [
       "Content-Type",
       "Authorization",
@@ -129,7 +132,13 @@ async function bootstrap() {
   app.use(sessionMiddleware);
 
   // Modular Upload Routes
-  app.use("/admin/uploads", uploadRoutes);
+  app.use("/api/admin/uploads", uploadRoutes);
+
+  // Store Appearance Routes
+  app.use("/api/admin/appearance", storeSettingsRoutes);
+
+  // Usage Routes
+  app.use("/api/admin/usage", usageRoutes);
 
   // Webhook Routes
   app.use("/api/webhooks", webhookRoutes);
@@ -228,7 +237,7 @@ async function bootstrap() {
 }
 
 bootstrap()
-  .then(() => sequelize.sync({ alter: true }))
+  .then(() => sequelize.sync())
   .then(() => {
     console.log("Database synced");
   })

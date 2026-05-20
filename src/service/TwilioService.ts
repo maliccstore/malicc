@@ -1,7 +1,5 @@
 import twilio from "twilio";
-import dotenv from "dotenv";
 import { Service } from "typedi";
-dotenv.config();
 
 @Service()
 class TwilioService {

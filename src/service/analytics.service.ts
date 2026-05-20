@@ -282,10 +282,10 @@ export class AnalyticsService {
     SELECT event, COUNT(DISTINCT session_id) as count
     FROM events
     WHERE event IN (
-      'PRODUCT_VIEW',
-      'ADD_TO_CART',
-      'CHECKOUT_STARTED',
-      'PAYMENT_SUCCESS'
+      '${ANALYTICS_EVENTS.PRODUCT_VIEW}',
+      '${ANALYTICS_EVENTS.ADD_TO_CART}',
+      '${ANALYTICS_EVENTS.CHECKOUT_STARTED}',
+      '${ANALYTICS_EVENTS.PAYMENT_SUCCESS}'
     )
     GROUP BY event
   `, { type: "SELECT" });
@@ -310,8 +310,8 @@ export class AnalyticsService {
       const current = steps[i];
       const next = steps[i + 1];
 
-      const currentCount = map[current] || 0;
-      const nextCount = map[next] || 0;
+      const currentCount = map[ANALYTICS_EVENTS[current as keyof typeof ANALYTICS_EVENTS]] || 0;
+      const nextCount = map[ANALYTICS_EVENTS[next as keyof typeof ANALYTICS_EVENTS]] || 0;
 
       const dropOff = i === steps.length - 1
         ? 0
@@ -320,7 +320,7 @@ export class AnalyticsService {
       const conversionRate = i === 0
         ? 100
         : currentCount
-          ? (currentCount / (map[steps[0]] || 1)) * 100
+          ? (currentCount / (map[ANALYTICS_EVENTS[steps[0] as keyof typeof ANALYTICS_EVENTS]] || 1)) * 100
           : 0;
 
       funnel.push({
@@ -344,15 +344,15 @@ export class AnalyticsService {
       CAST(SUM(sub."addToCart") AS INTEGER) AS "addToCart",
       CAST(SUM(sub.purchases) AS INTEGER) AS "purchases"
     FROM (
-      -- Views and Add to Cart from events metadata
+      -- Views and Add to Cart from events payload
       SELECT 
-        metadata->>'productId' AS "productId",
-        COUNT(*) FILTER (WHERE event = 'PRODUCT_VIEW') AS views,
-        COUNT(*) FILTER (WHERE event = 'ADD_TO_CART') AS "addToCart",
+        payload->>'productId' AS "productId",
+        COUNT(*) FILTER (WHERE event = '${ANALYTICS_EVENTS.PRODUCT_VIEW}') AS views,
+        COUNT(*) FILTER (WHERE event = '${ANALYTICS_EVENTS.ADD_TO_CART}') AS "addToCart",
         0 AS purchases
       FROM events
-      WHERE metadata->>'productId' IS NOT NULL
-      GROUP BY metadata->>'productId'
+      WHERE payload->>'productId' IS NOT NULL
+      GROUP BY payload->>'productId'
       
       UNION ALL
       
@@ -363,8 +363,8 @@ export class AnalyticsService {
         0 AS "addToCart",
         COUNT(*) AS purchases
       FROM events e
-      JOIN order_items oi ON oi."orderId" = (CASE WHEN (e.metadata->>'orderId') ~ '^[0-9a-fA-F-]{36}$' THEN e.metadata->>'orderId' ELSE NULL END)::uuid
-      WHERE e.event = 'PAYMENT_SUCCESS'
+      JOIN order_items oi ON oi."orderId" = (CASE WHEN (e.payload->>'orderId') ~ '^[0-9a-fA-F-]{36}$' THEN e.payload->>'orderId' ELSE NULL END)::uuid
+      WHERE e.event = '${ANALYTICS_EVENTS.PAYMENT_SUCCESS}'
       GROUP BY oi."productId"
     ) sub
     LEFT JOIN products p ON p.id = (CASE WHEN sub."productId" ~ '^[0-9a-fA-F-]{36}$' THEN sub."productId" ELSE NULL END)::uuid
