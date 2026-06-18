@@ -121,7 +121,7 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   };
   // Handle preflight requests for all routes
-  // app.options("*", cors(corsOptions));
+  app.options("*", cors(corsOptions));
   // Apply CORS to all routes
   app.use(cors(corsOptions));
 
